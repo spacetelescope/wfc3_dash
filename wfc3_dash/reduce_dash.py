@@ -66,25 +66,25 @@ class DashData(object):
         #First test whether the file exists
             try:
                 self.ima_file = fits.open(self.file_name)
-        ### If it does - test it's content
+            ### If it does - test its content
 
-        ###### Test whether it is a wfc3/ir image
-            if ~( (self.ima_file[0].header['INSTRUME'] == 'WFC3  ') & (self.ima_file[0].header['DETECTOR'] == 'IR  ') ):
-                raise Exception('This observation was not performed with WFC3/IR')
+            ###### Test whether it is a wfc3/ir image
+                if ~( (self.ima_file[0].header['INSTRUME'] == 'WFC3  ') & (self.ima_file[0].header['DETECTOR'] == 'IR  ') ):
+                    raise Exception('This observation was not performed with WFC3/IR')
 
-            ###### Test whether it has more than one science extension (FLTs have only 1)
+                ###### Test whether it has more than one science extension (FLTs have only 1)
                 nsci = [ext.header['EXTNAME '] for ext in self.ima_file[1:]].count('SCI')
-            if nsci == 1:
-                raise Exception('This file has only one science extension, it cannot be a WFC3/IR ima')
+                if nsci == 1:
+                    raise Exception('This file has only one science extension, it cannot be a WFC3/IR ima')
 
-
-            calib_keys = ['DQICORR','ZSIGCORR','ZOFFCORR','DARKCORR','BLEVCORR','NLINCORR','FLATCORR','CRCORR','UNITCORR','PHOTCORR','RPTCORR','DRIZCORR']
-            performed = 0
-            for ck in calib_keys:
-                if self.ima_file[0].header[ck] == 'COMPLETE':
-                performed = performed + 1
-            if performed == 0:
-                raise Exception('This file looks like a RAW file')     
+                ###### Test that this file is NOT a RAW
+                calib_keys = ['DQICORR','ZSIGCORR','ZOFFCORR','DARKCORR','BLEVCORR','NLINCORR','FLATCORR','CRCORR','UNITCORR','PHOTCORR','RPTCORR','DRIZCORR']
+                performed = 0
+                for ck in calib_keys:
+                    if self.ima_file[0].header[ck] == 'COMPLETE':
+                    performed = performed + 1
+                if performed == 0:
+                    raise Exception('This file looks like a RAW file')     
 
             except IOError:
                 print('Cannot read file.')
