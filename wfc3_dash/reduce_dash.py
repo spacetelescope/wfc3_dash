@@ -46,6 +46,7 @@ References
     doi:10.1088/1538-3873/129/971/015004
 
 """
+import numpy as np
 
 from astropy.io import fits
 from urllib.request import urlretrieve 
@@ -70,7 +71,7 @@ class DashData:
         ### Need to check header and make sure that this is actually a gyro exposure
         
     
-    def split_ima(self):
+    def split_ima():
 
         pass
         
@@ -91,6 +92,40 @@ class DashData:
         pass
 
     def make_pointing_asn(self):
+        """ Makes a new association table for the reads extracted from a given IMA.
+
+        """
+        root = self.root
+        asn_filename = root +'_asn.fits'
+
+
+
+        # Create Primary HDU:
+        hdr = fits.Header()
+        hdr['FILENAME'] = "'" + asn_filename + "'"
+        hdr['FILETYPE'] = 'ASN_TABLE'
+        hdr['ASN_ID'] = "'" + root "'"
+        hdr['ASN_TABLE'] = "'" + asn_filename + "'"
+        hdr['COMMENT'] = "This association table is for the read differences for the IMA."
+        primary_hdu = fits.PrimaryHDU(header=hdr)
+
+        # Create the information in the asn file
+        
+        asn_mem_names = np.array([''])
+        asn_mem_types = np.array(['EXP-DTH', 'PROD-DTH'])
+        asn_mem_prsnt = np.array([1,1,1,])
+
+        hdu_data = fits.BinTableHDU().from_columns([fits.Column(name='MEMNAME', format='14A', array=asn_mem_names), 
+                    fits.Column(name='MEMTYPE', format='14A', array=asn_mem_types), 
+                    fits.Column(name='MEMPRSNT', format='L', array=asn_mem_prsnt)])
+
+        # Create the final asn file
+        hdu = fits.HDUList([primary_hdu, hdu_data])
+        hdu.writeto(asn_filename)
+
+
+    
+
         pass
 
     def run_reduction():
@@ -130,7 +165,7 @@ def get_flat(file_name):
     return reffile_name
 
 def main():
-''' Main function of reduce_dash. 
+    ''' Main function of reduce_dash. 
 
     Parameters
     ----------
