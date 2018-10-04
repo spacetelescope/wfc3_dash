@@ -48,10 +48,11 @@ References
 """
 
 from astropy.io import fits
+from urllib.request import urlretrieve 
 
 FLAT_F160W = fits.open(''))[1].data
 BP_MASK = fits.open('')[0].data
-PATH = 'data/'
+PATH = 'data_download/mastDownload/HST/'
 
 
 class DashData:
@@ -66,6 +67,8 @@ class DashData:
                 ima_file = fits.open(self.file)
             except IOError:
                 print('Cannot read file.')
+
+        self.make_pointing_asn()
 
         ### Need to check header and make sure that this is actually a gyro exposure
         
@@ -89,7 +92,59 @@ class DashData:
     def coadd_reads():
         
         pass
-        
-    def run_reduction():
-        
+
+    def make_pointing_asn(self):
         pass
+
+    def run_reduction():
+        pass
+
+def get_flat(file_name):
+    ''' Will check if user has proper reference file directories 
+    and files. Will also return flat field file appropriate for 
+    the input file. 
+
+    Parameters
+    ----------
+    file_name : string
+        File name of input IMA. 
+
+    Returns
+    ----------
+    reffile_name : string
+        File name of flat field for that file. 
+
+    '''
+    os.environ['iref'] = '~/iref/'
+    if not os.path.exists('iref'):
+        os.mkdir('iref')
+    
+    os.environ['jref'] = '~/jref/'
+    if not os.path.exists('jref'):
+        os.mkdir('jref')
+
+    base_url = 'https://hst-crds.stsci.edu/unchecked_get/references/hst/'
+    
+    with fits.open(file_name) as fitsfile:
+        reffile_name = hdu[0].header['PFLTFILE'].replace('$', '/')
+        if not os.path.exists(reffile_name):
+            urlretrieve(base_url + os.path.basename(reffile_name), reffile_name)
+
+    return reffile_name
+
+def main():
+''' Main function of reduce_dash. 
+
+    Parameters
+    ----------
+     : 
+        
+
+    Outputs
+    ----------
+     : 
+         
+
+    '''
+
+
