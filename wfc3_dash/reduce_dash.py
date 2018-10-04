@@ -81,7 +81,7 @@ class DashData(object):
             calib_keys = ['DQICORR','ZSIGCORR','ZOFFCORR','DARKCORR','BLEVCORR','NLINCORR','FLATCORR','CRCORR','UNITCORR','PHOTCORR','RPTCORR','DRIZCORR']
             performed = 0
             for ck in calib_keys:
-                if self.ima_file[ck] == 'COMPLETE':
+                if self.ima_file[0].header[ck] == 'COMPLETE':
                 performed = performed + 1
             if performed == 0:
                 raise Exception('This file looks like a RAW file')     
