@@ -46,6 +46,7 @@ References
     doi:10.1088/1538-3873/129/971/015004
 
 """
+import numpy as np
 
 from astropy.io import fits
 import numpy as np
@@ -54,7 +55,8 @@ from urllib.request import urlretrieve
 BP_MASK = fits.open('')[0].data
 PATH = 'data_download/mastDownload/HST/'
 
-class DashData:
+
+class DashData(object):
     
     def __init__(self,file_name):
         
@@ -71,7 +73,7 @@ class DashData:
 
         ### Need to check header and make sure that this is actually a gyro exposure
         
-    
+
     def split_ima(self):
         
         FLAT = fits.open(get_flat(self.file_name))
@@ -134,7 +136,6 @@ class DashData:
             hdu.writeto('{}_{:02d}_diff.fits'.format(self.root,j), overwrite=True)
             
             self.file_list.append('{}_{:02d}'.format(self.root,j))
-
         
     def subtract_background_reads():
         
@@ -153,7 +154,45 @@ class DashData:
         pass
 
     def make_pointing_asn(self):
-        pass
+        """ Makes a new association table for the reads extracted from a given IMA.
+
+        """
+        asn_filename = '{}_asn.fits'.format(self.root)
+        file_list = self.file_list
+        asn_list = file_list.append(self.root)
+
+        # Create Primary HDU:
+        hdr = fits.Header()
+        hdr['FILENAME'] = "'" + asn_filename + "'"
+        hdr['FILETYPE'] = 'ASN_TABLE'
+        hdr['ASN_ID'] = "'" + self.root "'"
+        hdr['ASN_TABLE'] = "'" + asn_filename + "'"
+        hdr['COMMENT'] = "This association table is for the read differences for the IMA."
+        primary_hdu = fits.PrimaryHDU(header=hdr)
+
+        # Create the information in the asn file
+        num_mem = len(asn_list)
+
+        asn_mem_names = np.array(asn_list)
+        asn_mem_types =  (np.full(num_mem,'EXP-DTH'))
+        asn_mem_types[-1] = 'PROD-DTH'
+        asn_mem_prsnt = np.ones(num_mem, dtype=np.bool_)
+        asn_mem_prsnt[-1] = 0
+
+        hdu_data = fits.BinTableHDU().from_columns([fits.Column(name='MEMNAME', format='14A', array=asn_mem_names), 
+                    fits.Column(name='MEMTYPE', format='14A', array=asn_mem_types), 
+                    fits.Column(name='MEMPRSNT', format='L', array=asn_mem_prsnt)])
+
+        # Create the final asn file
+        hdu = fits.HDUList([primary_hdu, hdu_data])
+
+        if 'EXTEND' not in hdu[0].header.keys():
+            hdu[0].header.update('EXTEND', True, after='NAXIS')
+        
+        hdu.writeto(asn_filename, overwrite=True)
+
+        # Create property of the object that is the asn filename.
+        self.asn_filename = asn_filename 
 
     def run_reduction():
         pass
@@ -192,7 +231,7 @@ def get_flat(file_name):
     return reffile_name
 
 def main():
-''' Main function of reduce_dash. 
+    ''' Main function of reduce_dash. 
 
     Parameters
     ----------
