@@ -52,7 +52,6 @@ from astropy.io import fits
 import numpy as np
 from urllib.request import urlretrieve 
 
-BP_MASK = fits.open('')[0].data
 PATH = 'data_download/mastDownload/HST/'
 
 
@@ -64,41 +63,52 @@ class DashData(object):
             raise Exception('Input needs to be an IMA file.')
         else:
             self.file_name = file_name
-	    #First test whether the file exists
+        #First test whether the file exists
             try:
                 self.ima_file = fits.open(self.file_name)
-		### If it does test its content
+        ### If it does - test it's content
 
-		###### Test whether it is a wfc3/ir image
-		if ~( (INSTRUME == 'WFC3  ') & (DETECTOR == 'IR  ') ):
-		    raise Exception('This observation was not performed with WFC3/IR')
+        ###### Test whether it is a wfc3/ir image
+        if ~( (INSTRUME == 'WFC3  ') & (DETECTOR == 'IR  ') ):
+            raise Exception('This observation was not performed with WFC3/IR')
 
-		###### Test whether it has more than one science extension (FLTs have only 1)
-	        nsci = [ext.header['EXTNAME '] for ext in self.ima_file[1:]].count('SCI')
-		if nsci == 1:
-		    raise Exception('This file has only one science extension, it cannot be a WFC3/IR ima')
+        ###### Test whether it has more than one science extension (FLTs have only 1)
+            nsci = [ext.header['EXTNAME '] for ext in self.ima_file[1:]].count('SCI')
+        if nsci == 1:
+            raise Exception('This file has only one science extension, it cannot be a WFC3/IR ima')
 
 
-		calib_keys = ['DQICORR','ZSIGCORR','ZOFFCORR','DARKCORR','BLEVCORR','NLINCORR','FLATCORR','CRCORR','UNITCORR','PHOTCORR','RPTCORR','DRIZCORR']
-		performed = 0
-		for ck in calib_keys:
-		    if self.ima_file[ck] == 'COMPLETE':
-			performed = performed + 1
-		if performed == 0:
-		    raise Exception('This file looks like a RAW file')     
-		
+        calib_keys = ['DQICORR','ZSIGCORR','ZOFFCORR','DARKCORR','BLEVCORR','NLINCORR','FLATCORR','CRCORR','UNITCORR','PHOTCORR','RPTCORR','DRIZCORR']
+        performed = 0
+        for ck in calib_keys:
+            if self.ima_file[ck] == 'COMPLETE':
+            performed = performed + 1
+        if performed == 0:
+            raise Exception('This file looks like a RAW file')     
+
             except IOError:
                 print('Cannot read file.')
                 
         self.root = self.file_name.split('/')[-1].split('_ima')[0]
-
-        ### Need to check header and make sure that this is actually a gyro exposure
-
-	
         
 
     def split_ima(self):
+        ''' Will create individual files for the difference between 
+        adjacent reads of a IMA file. Will also add more attributes 
+        to the DashData object. 
+
+        Parameters
+        ----------
+        self : object
+            DashData object created from an individual IMA file. 
+
+        Outputs
+        ----------
+        N files : fits files
+            Fits files of the difference between adjacent IMA reads.
         
+
+        '''
         FLAT = fits.open(get_flat(self.file_name))
         
         NSAMP = self.ima_file[0].header['NSAMP']
@@ -179,6 +189,17 @@ class DashData(object):
     def make_pointing_asn(self):
         """ Makes a new association table for the reads extracted from a given IMA.
 
+        Parameters
+        ----------
+        self : object
+            DashData object created from an individual IMA file. 
+
+        Outputs
+        ----------
+        ASN files : fits file
+            Fits file formatted as an association file that holds 
+            the names of the difference files created by split_ima
+            and the root name of the individual IMA file.
         """
         asn_filename = '{}_asn.fits'.format(self.root)
         file_list = self.file_list
