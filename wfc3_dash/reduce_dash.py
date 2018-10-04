@@ -50,7 +50,6 @@ References
 from astropy.io import fits
 from urllib.request import urlretrieve 
 
-FLAT_F160W = fits.open(''))[1].data
 BP_MASK = fits.open('')[0].data
 PATH = 'data_download/mastDownload/HST/'
 
@@ -67,8 +66,6 @@ class DashData:
                 ima_file = fits.open(self.file)
             except IOError:
                 print('Cannot read file.')
-
-        self.make_pointing_asn()
 
         ### Need to check header and make sure that this is actually a gyro exposure
         
