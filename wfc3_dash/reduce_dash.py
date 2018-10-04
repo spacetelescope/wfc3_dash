@@ -60,18 +60,41 @@ class DashData(object):
     
     def __init__(self,file_name):
         
-        if '_ima.fits' not in file_name:  #probably the header would be a better check?
+        if '_ima.fits' not in file_name: 
             raise Exception('Input needs to be an IMA file.')
         else:
             self.file_name = file_name
+	    #First test whether the file exists
             try:
                 self.ima_file = fits.open(self.file_name)
+		### If it does test its content
+
+		###### Test whether it is a wfc3/ir image
+		if ~( (INSTRUME == 'WFC3  ') & (DETECTOR == 'IR  ') ):
+		    raise Exception('This observation was not performed with WFC3/IR')
+
+		###### Test whether it has more than one science extension (FLTs have only 1)
+	        nsci = [ext.header['EXTNAME '] for ext in self.ima_file[1:]].count('SCI')
+		if nsci == 1:
+		    raise Exception('This file has only one science extension, it cannot be a WFC3/IR ima')
+
+
+		calib_keys = ['DQICORR','ZSIGCORR','ZOFFCORR','DARKCORR','BLEVCORR','NLINCORR','FLATCORR','CRCORR','UNITCORR','PHOTCORR','RPTCORR','DRIZCORR']
+		performed = 0
+		for ck in calib_keys:
+		    if self.ima_file[ck] == 'COMPLETE':
+			performed = performed + 1
+		if performed == 0:
+		    raise Exception('This file looks like a RAW file')     
+		
             except IOError:
                 print('Cannot read file.')
                 
         self.root = self.file_name.split('/')[-1].split('_ima')[0]
 
         ### Need to check header and make sure that this is actually a gyro exposure
+
+	
         
 
     def split_ima(self):
