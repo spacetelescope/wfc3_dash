@@ -69,8 +69,9 @@ class DashData(object):
             ### If it does - test its content
 
             ###### Test whether it is a wfc3/ir image
-                if ~( (self.ima_file[0].header['INSTRUME'] == 'WFC3  ') & (self.ima_file[0].header['DETECTOR'] == 'IR  ') ):
-                    raise Exception('This observation was not performed with WFC3/IR')
+                if ( (self.ima_file[0].header['INSTRUME'].strip() == 'WFC3') & (self.ima_file[0].header['DETECTOR'].strip() == 'IR') ) == False:
+                    raise Exception('This observation was not performed with WFC3/IR, instrument is set to:',
+                                    self.ima_file[0].header['INSTRUME'],'and detector is set to:',self.ima_file[0].header['DETECTOR'] )
 
                 ###### Test whether it has more than one science extension (FLTs have only 1)
                 nsci = [ext.header['EXTNAME '] for ext in self.ima_file[1:]].count('SCI')
@@ -82,7 +83,7 @@ class DashData(object):
                 performed = 0
                 for ck in calib_keys:
                     if self.ima_file[0].header[ck] == 'COMPLETE':
-                    performed = performed + 1
+                        performed = performed + 1
                 if performed == 0:
                     raise Exception('This file looks like a RAW file')     
 
@@ -209,7 +210,7 @@ class DashData(object):
         hdr = fits.Header()
         hdr['FILENAME'] = "'" + asn_filename + "'"
         hdr['FILETYPE'] = 'ASN_TABLE'
-        hdr['ASN_ID'] = "'" + self.root "'"
+        hdr['ASN_ID'] = "'" + self.root + "'"
         hdr['ASN_TABLE'] = "'" + asn_filename + "'"
         hdr['COMMENT'] = "This association table is for the read differences for the IMA."
         primary_hdu = fits.PrimaryHDU(header=hdr)
