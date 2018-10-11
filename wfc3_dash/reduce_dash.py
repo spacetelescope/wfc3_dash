@@ -46,13 +46,11 @@ References
     doi:10.1088/1538-3873/129/971/015004
 
 """
-import numpy as np
 
 from astropy.io import fits
 import numpy as np
 from urllib.request import urlretrieve 
-
-PATH = 'data_download/mastDownload/HST/'
+import os
 
 
 class DashData(object):
@@ -149,7 +147,7 @@ class DashData(object):
             science_data = diff[j,:,:]/dt[j]
             hdu1 = fits.ImageHDU(data = science_data[5:-5,5:-5], header = self.ima_file['SCI',NSAMP-j-1].header, name='SCI')
 
-            var = 2*self.readnoise_2D + science_data*FLAT    
+            var = 2*self.readnoise_2D + science_data*FLAT[1].data    
             err = np.sqrt(var)/dt[j]
                     
             hdu2 = fits.ImageHDU(data = err[5:-5,5:-5], header = self.ima_file['ERR',NSAMP-j-1].header, name='ERR')
@@ -167,9 +165,14 @@ class DashData(object):
             
             hdu = fits.HDUList([hdu0,hdu1,hdu2,hdu3,hdu4,hdu5])
             print('Writing {}_{:02d}_diff.fits'.format(self.root,j))
-            hdu.writeto('{}_{:02d}_diff.fits'.format(self.root,j), overwrite=True)
+
+            if not os.path.exists('diff'):
+                os.mkdir('diff')
+
             
-            self.file_list.append('{}_{:02d}'.format(self.root,j))
+            hdu.writeto('diff/{}_{:02d}_diff.fits'.format(self.root,j), overwrite=True)
+            
+            self.file_list.append('diff/{}_{:02d}'.format(self.root,j))
         
     def subtract_background_reads():
         
@@ -258,18 +261,15 @@ def get_flat(file_name):
         File name of flat field for that file. 
 
     '''
+
     os.environ['iref'] = '~/iref/'
     if not os.path.exists('iref'):
         os.mkdir('iref')
-    
-    os.environ['jref'] = '~/jref/'
-    if not os.path.exists('jref'):
-        os.mkdir('jref')
 
     base_url = 'https://hst-crds.stsci.edu/unchecked_get/references/hst/'
     
     with fits.open(file_name) as fitsfile:
-        reffile_name = hdu[0].header['PFLTFILE'].replace('$', '/')
+        reffile_name = fitsfile[0].header['PFLTFILE'].replace('$', '/')
         if not os.path.exists(reffile_name):
             urlretrieve(base_url + os.path.basename(reffile_name), reffile_name)
 
