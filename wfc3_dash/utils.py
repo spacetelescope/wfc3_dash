@@ -1,3 +1,145 @@
+import os
+
+
+def get_flat(file_name):
+    ''' Will check if user has proper reference file directories 
+    and files. Will also return flat field file appropriate for 
+    the input file. 
+
+    Parameters
+    ----------
+    file_name : string
+        File name of input IMA. 
+
+    Returns
+    ----------
+    reffile_name : string
+        File name of flat field for that file. 
+
+    '''
+    os.environ['iref'] = '~/iref/'
+    if not os.path.exists('iref'):
+        os.mkdir('iref')
+    
+    os.environ['jref'] = '~/jref/'
+    if not os.path.exists('jref'):
+        os.mkdir('jref')
+
+    base_url = 'https://hst-crds.stsci.edu/unchecked_get/references/hst/'
+    
+    with fits.open(file_name) as fitsfile:
+        reffile_name = fitsfile[0].header['PFLTFILE'].replace('$', '/')
+        if not os.path.exists(reffile_name):
+            urlretrieve(base_url + os.path.basename(reffile_name), reffile_name)
+
+    return reffile_name
+
+def footprints_plot(root='icxe15010'):
+    
+    import unicorn.survey_paper as sup
+    import matplotlib.colors as colors
+    import matplotlib.cm as cmx
+    
+    if root == 'icxe15010':
+        aspect = 1.75
+        xlim = [150.265, 150.157]
+        ylim = [2.45, 2.64]
+        xticklab = [r'$10^\mathrm{h}01^\mathrm{m}00^\mathrm{s}$', r'$10^\mathrm{h}00^\mathrm{m}45^\mathrm{s}$']
+        xtickv = [sup.degrees(10,01,00, hours=True),sup.degrees(10,00,45, hours=True)]
+        yticklab = [r'$+02^\circ30^\prime00^{\prime\prime}$',r'$+02^\circ35^\prime00^{\prime\prime}$']
+        ytickv = [sup.degrees(2, 30, 00, hours=False),sup.degrees(2, 35, 00, hours=False)]
+        label = 'COSMOS-15'
+        factor=10.
+
+    if root == 'icxe16010':
+        aspect=0.9
+        xlim = [150.265, 150.1]
+        ylim = [2.607, 2.74]
+        xticklab = [r'$10^\mathrm{h}01^\mathrm{m}00^\mathrm{s}$', r'$10^\mathrm{h}00^\mathrm{m}45^\mathrm{s}$',r'$10^\mathrm{h}00^\mathrm{m}30^\mathrm{s}$']
+        xtickv = [sup.degrees(10,01,00, hours=True),sup.degrees(10,00,45, hours=True),sup.degrees(10,00,30, hours=True)]
+        yticklab = [r'$+02^\circ38^\prime00^{\prime\prime}$',r'$+02^\circ40^\prime00^{\prime\prime}$', r'$+02^\circ42^\prime00^{\prime\prime}$', r'$+02^\circ44^\prime00^{\prime\prime}$']
+        ytickv = [sup.degrees(2, 38, 00, hours=False),sup.degrees(2, 40, 00, hours=False),sup.degrees(2, 42, 00, hours=False),sup.degrees(2, 44, 00, hours=False)]
+        label='COSMOS-16'
+        factor=20.
+    
+    if root == 'icxe17010':
+        aspect=1.4
+        xlim = [150.2, 150.06]
+        ylim = [2.52, 2.72]
+        xticklab = [r'$10^\mathrm{h}00^\mathrm{m}45^\mathrm{s}$', r'$10^\mathrm{h}00^\mathrm{m}30^\mathrm{s}$',r'$10^\mathrm{h}00^\mathrm{m}15^\mathrm{s}$']
+        xtickv = [sup.degrees(10,00,45, hours=True),sup.degrees(10,00,30, hours=True),sup.degrees(10,00,15, hours=True)]
+        yticklab = [r'$+02^\circ35^\prime00^{\prime\prime}$',r'$+02^\circ40^\prime00^{\prime\prime}$']
+        ytickv = [sup.degrees(2, 35, 00, hours=False),sup.degrees(2, 40, 00, hours=False)]
+        label='COSMOS-17'
+        factor=240.
+
+    if root == 'icxe18010':
+        aspect=1.577
+        xlim = [150.14, 150.01]
+        ylim = [2.53, 2.735]
+        xticklab = [r'$10^\mathrm{h}00^\mathrm{m}30^\mathrm{s}$', r'$10^\mathrm{h}00^\mathrm{m}20^\mathrm{s}$',r'$10^\mathrm{h}00^\mathrm{m}10^\mathrm{s}$']
+        xtickv = [sup.degrees(10,00,30, hours=True),sup.degrees(10,00,20, hours=True),sup.degrees(10,00,10, hours=True)]
+        yticklab = [r'$+02^\circ35^\prime00^{\prime\prime}$',r'$+02^\circ40^\prime00^{\prime\prime}$']
+        ytickv = [sup.degrees(2, 35, 00, hours=False),sup.degrees(2, 40, 00, hours=False)]
+        label='COSMOS-18'
+        factor=240.
+    
+    
+    
+    fig = unicorn.catalogs.plot_init(square=True, xs=5., aspect=aspect, 
+        fontsize=8, left=0.18, right=0.02, bottom=0.10, top=0.10)
+    ax = fig.add_subplot(111)
+    jet = cm = plt.get_cmap('jet')
+    cNorm = colors.Normalize(vmin=0, vmax=9)
+    scalarMap = cmx.ScalarMappable(norm=cNorm, cmap=jet)    
+    
+    reg_file = root+'_asn.reg'
+    
+    poly = []
+    with open(reg_file) as f:
+        for line in f:
+            if not line.startswith('fk5'):
+                region = line.split('#')[0]
+                poly.append(sup.polysplit(region=region, get_shapely=True))
+
+    shifts = table.read('shifts_{}.txt'.format(root), format='ascii', 
+        names=('file','x','y','rot','scale','x_rms','y_rms'))
+        
+    cc = 0
+    xcen_all = []
+    ycen_all = []
+    for j,(pp, x_off, y_off, file) in enumerate(zip(poly, shifts['x'], shifts['y'], shifts['file'])):
+        cc += 1.
+        color = scalarMap.to_rgba(cc)
+        x, y = pp.exterior.xy
+        flt = fits.open(file)
+        xcen = flt[1].header['CRVAL1O']
+        ycen = flt[1].header['CRVAL2O']
+        x_off = (flt[1].header['CRVAL1B']-flt[1].header['CRVAL1O'])*20.
+        y_off = (flt[1].header['CRVAL2B']-flt[1].header['CRVAL2O'])*20.
+        print file, xcen, xcen+x_off, ycen, ycen+y_off
+        #xcen = (np.mean(x[:-1]))
+        #ycen = (np.mean(y[:-1]))
+        xcen_all.append(xcen)
+        ycen_all.append(ycen)
+        ax.plot(x,y,'-', color=color)
+        #ax.annotate("",xy=(xcen+(x_off*0.12)/factor, ycen+(y_off*0.12)/factor), xytext=(xcen, ycen), 
+        #    arrowprops=dict(arrowstyle='->', color=color))
+        #ax.plot([xcen, xcen+x_off], [ycen, ycen+y_off], '-')
+        ax.annotate("",xy=(xcen+x_off, ycen+y_off), xytext=(xcen, ycen), 
+            arrowprops=dict(arrowstyle='->', color=color))
+
+    ax.plot(xcen_all, ycen_all, '+:', markersize=10., color='0.5', alpha=0.5) 
+    ax.set_xlim(xlim)
+    ax.set_ylim(ylim)     
+    ax.set_xticklabels(xticklab)
+    xtick = ax.set_xticks(xtickv)
+    ax.set_yticklabels(yticklab)
+    ytick = ax.set_yticks(ytickv)
+    ax.set_title(label)       
+    plt.show(block=False)
+    
+    fig.savefig('footprint_{}.png'.format(label.lower()), dpi=200, transparent=False)          
 
 
 class ASNFile(object):
