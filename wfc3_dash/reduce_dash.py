@@ -49,7 +49,6 @@ References
 
 from astropy.io import fits
 import numpy as np
-from urllib.request import urlretrieve 
 from drizzlepac import tweakreg
 import stwcs
 import os
@@ -138,7 +137,7 @@ class DashData(object):
         self.readnoise_2D[512: , 512:] += self.ima_file[0].header['READNSED']
         self.readnoise_2D = self.readnoise_2D**2
         
-        self.file_list = []
+        self.diff_files_list = []
         for j in range(1, NSAMP-1):
 
             hdu0 = fits.PrimaryHDU(header=self.ima_file[0].header)
@@ -174,7 +173,7 @@ class DashData(object):
             
             hdu.writeto('diff/{}_{:02d}_diff.fits'.format(self.root,j), overwrite=True)
             
-            self.file_list.append('diff/{}_{:02d}'.format(self.root,j))
+            self.diff_files_list.append('diff/{}_{:02d}'.format(self.root,j))
         
     def subtract_background_reads(self, subtract=True, reset_stars_dq=False):
         
@@ -196,7 +195,7 @@ class DashData(object):
         
         self.bg_models = []
         
-        for ii, exp in enumerate(self.file_list):
+        for ii, exp in enumerate(self.diff_files_list):
         
             diff = fits.open('{}_diff.fits'.format(exp), mode='update')
             diff_wcs = stwcs.wcsutil.HSTWCS(diff, ext=1)
@@ -344,9 +343,10 @@ class DashData(object):
             the names of the difference files created by split_ima
             and the root name of the individual IMA file.
         """
-        asn_filename = '{}_asn.fits'.format(self.root)
-        file_list = self.file_list
-        asn_list = file_list.append(self.root)
+        
+        asn_filename = 'diff/{}_asn.fits'.format(self.root)
+        asn_list = self.diff_files_list.copy()
+        asn_list.append(self.root)
 
         # Create Primary HDU:
         hdr = fits.Header()
@@ -361,7 +361,7 @@ class DashData(object):
         num_mem = len(asn_list)
 
         asn_mem_names = np.array(asn_list)
-        asn_mem_types =  (np.full(num_mem,'EXP-DTH'))
+        asn_mem_types =  np.full(num_mem,'EXP-DTH',dtype=np.chararray)
         asn_mem_types[-1] = 'PROD-DTH'
         asn_mem_prsnt = np.ones(num_mem, dtype=np.bool_)
         asn_mem_prsnt[-1] = 0
