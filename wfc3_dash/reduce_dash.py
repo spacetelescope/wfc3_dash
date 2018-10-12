@@ -46,7 +46,6 @@ References
     doi:10.1088/1538-3873/129/971/015004
 
 """
-import numpy as np
 
 from astropy.io import fits
 import numpy as np
@@ -54,8 +53,6 @@ from urllib.request import urlretrieve
 from drizzlepac import tweakreg
 import stwcs
 import os
-
-PATH = 'data_download/mastDownload/HST/'
 
 
 class DashData(object):
@@ -72,8 +69,9 @@ class DashData(object):
             ### If it does - test its content
 
             ###### Test whether it is a wfc3/ir image
-                if ~( (self.ima_file[0].header['INSTRUME'] == 'WFC3  ') & (self.ima_file[0].header['DETECTOR'] == 'IR  ') ):
-                    raise Exception('This observation was not performed with WFC3/IR')
+                if ( (self.ima_file[0].header['INSTRUME'].strip() == 'WFC3') & (self.ima_file[0].header['DETECTOR'].strip() == 'IR') ) == False:
+                    raise Exception('This observation was not performed with WFC3/IR, instrument is set to:',
+                                    self.ima_file[0].header['INSTRUME'],'and detector is set to:',self.ima_file[0].header['DETECTOR'] )
 
                 ###### Test whether it has more than one science extension (FLTs have only 1)
                 nsci = [ext.header['EXTNAME '] for ext in self.ima_file[1:]].count('SCI')
@@ -85,7 +83,7 @@ class DashData(object):
                 performed = 0
                 for ck in calib_keys:
                     if self.ima_file[0].header[ck] == 'COMPLETE':
-                    performed = performed + 1
+                        performed = performed + 1
                 if performed == 0:
                     raise Exception('This file looks like a RAW file')     
 
@@ -169,9 +167,14 @@ class DashData(object):
             
             hdu = fits.HDUList([hdu0,hdu1,hdu2,hdu3,hdu4,hdu5])
             print('Writing {}_{:02d}_diff.fits'.format(self.root,j))
-            hdu.writeto('{}_{:02d}_diff.fits'.format(self.root,j), overwrite=True)
+
+            if not os.path.exists('diff'):
+                os.mkdir('diff')
+
             
-            self.file_list.append('{}_{:02d}'.format(self.root,j))
+            hdu.writeto('diff/{}_{:02d}_diff.fits'.format(self.root,j), overwrite=True)
+            
+            self.file_list.append('diff/{}_{:02d}'.format(self.root,j))
         
     def subtract_background_reads(self, subtract=True, reset_stars_dq=False):
         
@@ -349,7 +352,7 @@ class DashData(object):
         hdr = fits.Header()
         hdr['FILENAME'] = "'" + asn_filename + "'"
         hdr['FILETYPE'] = 'ASN_TABLE'
-        hdr['ASN_ID'] = "'" + self.root "'"
+        hdr['ASN_ID'] = "'" + self.root + "'"
         hdr['ASN_TABLE'] = "'" + asn_filename + "'"
         hdr['COMMENT'] = "This association table is for the read differences for the IMA."
         primary_hdu = fits.PrimaryHDU(header=hdr)
@@ -380,6 +383,7 @@ class DashData(object):
 
     def run_reduction():
         pass
+
 
 def main():
     ''' 
