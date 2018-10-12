@@ -53,7 +53,7 @@ from urllib.request import urlretrieve
 from drizzlepac import tweakreg
 import stwcs
 import os
-
+from utils import get_flat
 
 class DashData(object):
     

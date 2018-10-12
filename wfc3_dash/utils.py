@@ -1,8 +1,11 @@
 import os
+from astropy.io import fits
+from urllib.request import urlretrieve 
 
 
 def get_flat(file_name):
-    ''' Will check if user has proper reference file directories 
+    '''
+    Will check if user has proper reference file directories 
     and files. Will also return flat field file appropriate for 
     the input file. 
 
@@ -21,10 +24,6 @@ def get_flat(file_name):
     if not os.path.exists('iref'):
         os.mkdir('iref')
     
-    os.environ['jref'] = '~/jref/'
-    if not os.path.exists('jref'):
-        os.mkdir('jref')
-
     base_url = 'https://hst-crds.stsci.edu/unchecked_get/references/hst/'
     
     with fits.open(file_name) as fitsfile:
@@ -36,7 +35,7 @@ def get_flat(file_name):
 
 def footprints_plot(root='icxe15010'):
     
-    import unicorn.survey_paper as sup
+    #    import unicorn.survey_paper as sup  #Mario: commenting out the sup dependencies. Will fix this later
     import matplotlib.colors as colors
     import matplotlib.cm as cmx
     
@@ -45,9 +44,9 @@ def footprints_plot(root='icxe15010'):
         xlim = [150.265, 150.157]
         ylim = [2.45, 2.64]
         xticklab = [r'$10^\mathrm{h}01^\mathrm{m}00^\mathrm{s}$', r'$10^\mathrm{h}00^\mathrm{m}45^\mathrm{s}$']
-        xtickv = [sup.degrees(10,01,00, hours=True),sup.degrees(10,00,45, hours=True)]
+        #xtickv = [sup.degrees(10,01,00, hours=True),sup.degrees(10,00,45, hours=True)]
         yticklab = [r'$+02^\circ30^\prime00^{\prime\prime}$',r'$+02^\circ35^\prime00^{\prime\prime}$']
-        ytickv = [sup.degrees(2, 30, 00, hours=False),sup.degrees(2, 35, 00, hours=False)]
+        #ytickv = [sup.degrees(2, 30, 00, hours=False),sup.degrees(2, 35, 00, hours=False)]
         label = 'COSMOS-15'
         factor=10.
 
@@ -56,9 +55,9 @@ def footprints_plot(root='icxe15010'):
         xlim = [150.265, 150.1]
         ylim = [2.607, 2.74]
         xticklab = [r'$10^\mathrm{h}01^\mathrm{m}00^\mathrm{s}$', r'$10^\mathrm{h}00^\mathrm{m}45^\mathrm{s}$',r'$10^\mathrm{h}00^\mathrm{m}30^\mathrm{s}$']
-        xtickv = [sup.degrees(10,01,00, hours=True),sup.degrees(10,00,45, hours=True),sup.degrees(10,00,30, hours=True)]
+        #xtickv = [sup.degrees(10,01,00, hours=True),sup.degrees(10,00,45, hours=True),sup.degrees(10,00,30, hours=True)]
         yticklab = [r'$+02^\circ38^\prime00^{\prime\prime}$',r'$+02^\circ40^\prime00^{\prime\prime}$', r'$+02^\circ42^\prime00^{\prime\prime}$', r'$+02^\circ44^\prime00^{\prime\prime}$']
-        ytickv = [sup.degrees(2, 38, 00, hours=False),sup.degrees(2, 40, 00, hours=False),sup.degrees(2, 42, 00, hours=False),sup.degrees(2, 44, 00, hours=False)]
+        #ytickv = [sup.degrees(2, 38, 00, hours=False),sup.degrees(2, 40, 00, hours=False),sup.degrees(2, 42, 00, hours=False),sup.degrees(2, 44, 00, hours=False)]
         label='COSMOS-16'
         factor=20.
     
@@ -67,9 +66,9 @@ def footprints_plot(root='icxe15010'):
         xlim = [150.2, 150.06]
         ylim = [2.52, 2.72]
         xticklab = [r'$10^\mathrm{h}00^\mathrm{m}45^\mathrm{s}$', r'$10^\mathrm{h}00^\mathrm{m}30^\mathrm{s}$',r'$10^\mathrm{h}00^\mathrm{m}15^\mathrm{s}$']
-        xtickv = [sup.degrees(10,00,45, hours=True),sup.degrees(10,00,30, hours=True),sup.degrees(10,00,15, hours=True)]
+        #xtickv = [sup.degrees(10,00,45, hours=True),sup.degrees(10,00,30, hours=True),sup.degrees(10,00,15, hours=True)]
         yticklab = [r'$+02^\circ35^\prime00^{\prime\prime}$',r'$+02^\circ40^\prime00^{\prime\prime}$']
-        ytickv = [sup.degrees(2, 35, 00, hours=False),sup.degrees(2, 40, 00, hours=False)]
+        #ytickv = [sup.degrees(2, 35, 00, hours=False),sup.degrees(2, 40, 00, hours=False)]
         label='COSMOS-17'
         factor=240.
 
@@ -78,15 +77,18 @@ def footprints_plot(root='icxe15010'):
         xlim = [150.14, 150.01]
         ylim = [2.53, 2.735]
         xticklab = [r'$10^\mathrm{h}00^\mathrm{m}30^\mathrm{s}$', r'$10^\mathrm{h}00^\mathrm{m}20^\mathrm{s}$',r'$10^\mathrm{h}00^\mathrm{m}10^\mathrm{s}$']
-        xtickv = [sup.degrees(10,00,30, hours=True),sup.degrees(10,00,20, hours=True),sup.degrees(10,00,10, hours=True)]
+        #xtickv = [sup.degrees(10,00,30, hours=True),sup.degrees(10,00,20, hours=True),sup.degrees(10,00,10, hours=True)]
         yticklab = [r'$+02^\circ35^\prime00^{\prime\prime}$',r'$+02^\circ40^\prime00^{\prime\prime}$']
-        ytickv = [sup.degrees(2, 35, 00, hours=False),sup.degrees(2, 40, 00, hours=False)]
+        #ytickv = [sup.degrees(2, 35, 00, hours=False),sup.degrees(2, 40, 00, hours=False)]
         label='COSMOS-18'
         factor=240.
     
     
     
-    fig = unicorn.catalogs.plot_init(square=True, xs=5., aspect=aspect, 
+        #   fig = unicorn.catalogs.plot_init(square=True, xs=5., aspect=aspect,  # MArio: changed this to a regular matplotlib call (below), until we fix the unicorn module dependency
+        #fontsize=8, left=0.18, right=0.02, bottom=0.10, top=0.10)
+
+    fig = plt.figure(square=True, xs=5., aspect=aspect, 
         fontsize=8, left=0.18, right=0.02, bottom=0.10, top=0.10)
     ax = fig.add_subplot(111)
     jet = cm = plt.get_cmap('jet')
@@ -100,7 +102,7 @@ def footprints_plot(root='icxe15010'):
         for line in f:
             if not line.startswith('fk5'):
                 region = line.split('#')[0]
-                poly.append(sup.polysplit(region=region, get_shapely=True))
+                #            poly.append(sup.polysplit(region=region, get_shapely=True))
 
     shifts = table.read('shifts_{}.txt'.format(root), format='ascii', 
         names=('file','x','y','rot','scale','x_rms','y_rms'))
@@ -117,7 +119,7 @@ def footprints_plot(root='icxe15010'):
         ycen = flt[1].header['CRVAL2O']
         x_off = (flt[1].header['CRVAL1B']-flt[1].header['CRVAL1O'])*20.
         y_off = (flt[1].header['CRVAL2B']-flt[1].header['CRVAL2O'])*20.
-        print file, xcen, xcen+x_off, ycen, ycen+y_off
+        #print file, xcen, xcen+x_off, ycen, ycen+y_off
         #xcen = (np.mean(x[:-1]))
         #ycen = (np.mean(y[:-1]))
         xcen_all.append(xcen)
