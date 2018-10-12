@@ -244,7 +244,7 @@ class DashData(object):
         
         pass
         
-    def align_flt(self, align_method = 'CATALOG', ref_catalog = None, ref_image = None, subtract_background = True):
+    def align(self, align_method = 'CATALOG', ref_catalog = None, ref_image = None, subtract_background = True):
         
         outshifts = 'shifts_{}.txt'.format(self.root)
         outwcs = 'shifts_{}_wcs.fits'.format(self.root)
@@ -358,39 +358,6 @@ class DashData(object):
 
     def run_reduction():
         pass
-
-def get_flat(file_name):
-    ''' Will check if user has proper reference file directories 
-    and files. Will also return flat field file appropriate for 
-    the input file. 
-
-    Parameters
-    ----------
-    file_name : string
-        File name of input IMA. 
-
-    Returns
-    ----------
-    reffile_name : string
-        File name of flat field for that file. 
-
-    '''
-    os.environ['iref'] = '~/iref/'
-    if not os.path.exists('iref'):
-        os.mkdir('iref')
-    
-    os.environ['jref'] = '~/jref/'
-    if not os.path.exists('jref'):
-        os.mkdir('jref')
-
-    base_url = 'https://hst-crds.stsci.edu/unchecked_get/references/hst/'
-    
-    with fits.open(file_name) as fitsfile:
-        reffile_name = fitsfile[0].header['PFLTFILE'].replace('$', '/')
-        if not os.path.exists(reffile_name):
-            urlretrieve(base_url + os.path.basename(reffile_name), reffile_name)
-
-    return reffile_name
 
 def main():
     ''' 
