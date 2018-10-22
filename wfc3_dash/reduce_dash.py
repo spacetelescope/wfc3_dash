@@ -57,7 +57,10 @@ from utils import get_flat
 class DashData(object):
     
     def __init__(self,file_name=None):
-        
+        '''
+        The init method performs a series of tests to make sure that the file fed to 
+        the DashData class is a valid IMA file with units in e/s
+        '''
         if '_ima.fits' not in file_name: 
             raise Exception('Input needs to be an IMA file.')
         else:
@@ -69,8 +72,8 @@ class DashData(object):
 
             ###### Test whether it is a wfc3/ir image
                 if ( (self.ima_file[0].header['INSTRUME'].strip() == 'WFC3') & (self.ima_file[0].header['DETECTOR'].strip() == 'IR') ) == False:
-                    raise Exception('This observation was not performed with WFC3/IR, instrument is set to:',
-                                    self.ima_file[0].header['INSTRUME'],'and detector is set to:',self.ima_file[0].header['DETECTOR'] )
+                    raise Exception('This observation was not performed with WFC3/IR, instrument is set to: {}, and detector is set to: {}'.format(
+                                    self.ima_file[0].header['INSTRUME'],self.ima_file[0].header['DETECTOR'] ) )
 
                 ###### Test whether it has more than one science extension (FLTs have only 1)
                 nsci = [ext.header['EXTNAME '] for ext in self.ima_file[1:]].count('SCI')
@@ -86,6 +89,18 @@ class DashData(object):
                 if performed == 0:
                     raise Exception('This file looks like a RAW file')     
 
+                ###### Test that the units of the individual images are e/s
+                
+                bu = self.ima_file[1].header['BUNIT']
+                if  bu != 'ELECTRONS/S':
+                    uc = self.ima_file[0].header['UNITCORR']
+                    fc = self.ima_file[0].header['FLATCORR']
+                    raise Exception('BUNIT in the "SCI" extensions of this file is set to "{}", but should be set to "ELECTRONS/S"\n'
+                                    'This is a consequence of UNITCORR set to "{}" and FLATCORR set to "{}".\n'
+                                    'Please rerun calwf3 on this file after setting both UNITCORR and FLATCORR to "PERFORM" in the 0-th extension header'.format(bu,uc,fc))
+                    
+                
+
             except IOError:
                 print('Cannot read file.')
                 
@@ -93,7 +108,8 @@ class DashData(object):
         
 
     def split_ima(self):
-        ''' Will create individual files for the difference between 
+        ''' 
+        Will create individual files for the difference between 
         adjacent reads of a IMA file. Will also add more attributes 
         to the DashData object. 
 
