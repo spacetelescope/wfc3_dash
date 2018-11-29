@@ -177,7 +177,7 @@ class DashData(object):
             # remove the 32 flag, these are not consistently bad
             hdu3.data[(hdu3.data & 32) > 0] -= 32
             
-            hdu4 = fits.ImageHDU(data = (np.zeros((1014,1014)) + 1), name = 'SAMP', dtype=np.int16)
+            hdu4 = fits.ImageHDU(data = (np.zeros((1014,1014), dtype=np.int16) + 1), name = 'SAMP')
             hdu5 = fits.ImageHDU(np.zeros((1014,1014)) + dt[j], name = 'TIME')
             
             hdu = fits.HDUList([hdu0,hdu1,hdu2,hdu3,hdu4,hdu5])
