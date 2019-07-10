@@ -50,6 +50,7 @@ References
 from astropy.io import fits
 import numpy as np
 from drizzlepac import tweakreg
+from drizzlepac import astrodrizzle
 import stwcs
 import os
 from utils import get_flat
@@ -164,7 +165,7 @@ class DashData(object):
             science_data = diff[j,:,:]/dt[j]
             hdu1 = fits.ImageHDU(data = science_data[5:-5,5:-5], header = self.ima_file['SCI',NSAMP-j-1].header, name='SCI')
 
-            var = 2*self.readnoise_2D + science_data*FLAT['SCI'].data
+            var = 2*self.readnoise_2D + science_data*FLAT['SCI'].data*dt[j]
             err = np.sqrt(var)/dt[j]
                     
             hdu2 = fits.ImageHDU(data = err[5:-5,5:-5], header = self.ima_file['ERR',NSAMP-j-1].header, name='ERR')
@@ -257,19 +258,19 @@ class DashData(object):
             
             ### Should these background subtracted reads substitute the ones saved in split_ima?
                     
-    def subtract_background_flt():
+    def subtract_background_flt(self):
         
         pass
         
-    def fix_cosmic_rays():
+    def fix_cosmic_rays(self):
         
         pass
         
-    def make_read_catalog():
+    def make_read_catalog(self):
         
         pass
         
-    def align_read():
+    def align_read(self):
         
         pass
         
@@ -286,7 +287,7 @@ class DashData(object):
         if align_method == 'CATALOG': 
             if (ref_catalog is not None) and (ref_image is not None):
                 
-                drizzlepac.tweakreg.TweakReg(self.root+'_flt.fits', 
+                tweakreg.TweakReg(self.root+'_flt.fits', 
                     refimage=ref_image, # reference image
                     refcat = ref_catalog, # reference catalog
                     updatehdr = True, 
@@ -319,9 +320,8 @@ class DashData(object):
                     clobber=True) 
             else:
                 
-                ### what do you do if there's no catalog - throw an error?
-                
-                pass
+                raise Exception('Need to specify reference catalog and reference image.')
+            
                 
         else:
             ### Needs to actually do tweakreg?
@@ -329,7 +329,7 @@ class DashData(object):
             pass
             
     
-        drizzlepac.astrodrizzle.AstroDrizzle(root+'_flt.fits', 
+        astrodrizzle.AstroDrizzle(self.root+'_flt.fits', 
             clean=False, 
             final_pixfrac=1.0, 
             context=False, 
@@ -340,7 +340,7 @@ class DashData(object):
             driz_cr_scale = '2.5 0.7', 
             wcskey= 'TWEAK')
               
-    def coadd_reads():
+    def coadd_reads(self):
         
         pass
 
