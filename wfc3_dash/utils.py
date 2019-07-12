@@ -20,7 +20,7 @@ def get_flat(file_name):
         File name of flat field for that file. 
 
     '''
-    os.environ['iref'] = '~/iref/'
+    os.environ['iref'] = 'iref/'
     if not os.path.exists('iref'):
         os.mkdir('iref')
     
@@ -28,6 +28,21 @@ def get_flat(file_name):
     
     with fits.open(file_name) as fitsfile:
         reffile_name = fitsfile[0].header['PFLTFILE'].replace('$', '/')
+        if not os.path.exists(reffile_name):
+            urlretrieve(base_url + os.path.basename(reffile_name), reffile_name)
+
+    return reffile_name
+
+def get_IDCtable(file_name):
+
+    os.environ['iref'] = 'iref/'
+    if not os.path.exists('iref'):
+        os.mkdir('iref')
+    
+    base_url = 'https://hst-crds.stsci.edu/unchecked_get/references/hst/'
+    
+    with fits.open(file_name) as fitsfile:
+        reffile_name = fitsfile[0].header['IDCTAB'].replace('$', '/')
         if not os.path.exists(reffile_name):
             urlretrieve(base_url + os.path.basename(reffile_name), reffile_name)
 

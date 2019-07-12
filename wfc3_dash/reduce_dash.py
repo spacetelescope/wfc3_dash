@@ -54,6 +54,10 @@ from drizzlepac import astrodrizzle
 import stwcs
 import os
 from utils import get_flat
+from utils import get_IDCtable
+from glob import glob #Needed for gaia alignment
+from stsci.tools import teal #Needed for gaia alignment
+from stwcs import updatewcs #Needed for gaia alignment
 
 class DashData(object):
     
@@ -127,6 +131,7 @@ class DashData(object):
 
         '''
         FLAT = fits.open(get_flat(self.file_name))
+        IDCtable = fits.open(get_IDCtable(self.file_name))
         
         NSAMP = self.ima_file[0].header['NSAMP']
         shape = self.ima_file['SCI',1].shape
@@ -160,17 +165,24 @@ class DashData(object):
             hdu0 = fits.PrimaryHDU(header=self.ima_file[0].header)
             hdu0.header['EXPTIME'] = dt[j]
             hdu0.header['IMA2FLT'] = (1, 'FLT {} extracted from IMA file'.format(j)) 
+            hdu0.header['NEXTEND'] = 5
+            hdu0.header['OBSMODE'] = 'ACCUM'
+            hdu0.header['NSAMP'] = 1
+
             
             # NOT SURE THE HEADERS I AM GIVING IT HERE ARE OK
             science_data = diff[j,:,:]/dt[j]
             hdu1 = fits.ImageHDU(data = science_data[5:-5,5:-5], header = self.ima_file['SCI',NSAMP-j-1].header, name='SCI')
+            hdu1.header['EXTVER'] = 1
 
             var = 2*self.readnoise_2D + science_data*FLAT['SCI'].data*dt[j]
             err = np.sqrt(var)/dt[j]
                     
             hdu2 = fits.ImageHDU(data = err[5:-5,5:-5], header = self.ima_file['ERR',NSAMP-j-1].header, name='ERR')
+            hdu2.header['EXTVER'] = 1
             
             hdu3 = fits.ImageHDU(data = dq[j+1][5:-5,5:-5], header = self.ima_file['DQ',NSAMP-j-1].header, name='DQ')
+            hdu3.header['EXTVER'] = 1
             
             #hdu3.data[BP_MASK == 1] += 4
             # trun the 8192 cosmic ray flag to the standard 3096
@@ -178,8 +190,12 @@ class DashData(object):
             # remove the 32 flag, these are not consistently bad
             hdu3.data[(hdu3.data & 32) > 0] -= 32
             
-            hdu4 = fits.ImageHDU(data = (np.zeros((1014,1014), dtype=np.int16) + 1), name = 'SAMP')
-            hdu5 = fits.ImageHDU(np.zeros((1014,1014)) + dt[j], name = 'TIME')
+            hdu4 = fits.ImageHDU(data = (np.zeros((1014,1014), dtype=np.int16) + 1), header = self.ima_file['SAMP',NSAMP-j-1].header, name = 'SAMP')
+            hdu5 = fits.ImageHDU(np.zeros((1014,1014)) + dt[j], header = self.ima_file['TIME',NSAMP-j-1].header, name = 'TIME')
+            hdu4.header['EXTVER'] = 1
+            hdu5.header['EXTVER'] = 1
+
+
             
             hdu = fits.HDUList([hdu0,hdu1,hdu2,hdu3,hdu4,hdu5])
             print('Writing {}_{:02d}_diff.fits'.format(self.root,j))
@@ -269,80 +285,6 @@ class DashData(object):
     def make_read_catalog(self):
         
         pass
-        
-    def align_read(self):
-        
-        pass
-        
-    def align(self, align_method = 'CATALOG', ref_catalog = None, ref_image = None, subtract_background = True):
-        
-        outshifts = 'shifts_{}.txt'.format(self.root)
-        outwcs = 'shifts_{}_wcs.fits'.format(self.root)
-        
-        if subtract_background:
-            self.subtract_background_reads()
-        
-        ### What other alignment methods are there? TWEAKREG, GAIA?
-        
-        if align_method == 'CATALOG': 
-            if (ref_catalog is not None) and (ref_image is not None):
-                
-                tweakreg.TweakReg(self.root+'_flt.fits', 
-                    refimage=ref_image, # reference image
-                    refcat = ref_catalog, # reference catalog
-                    updatehdr = True, 
-                    updatewcs = True, 
-                    writecat = False, 
-                    clean = True, 
-                    verbose = True, 
-                    runfile = 'tweakreg.log', 
-                    wcsname = 'TWEAK', 
-                    headerlet = False, 
-                    shiftfile = True, 
-                    outshifts = outshifts, 
-                    outwcs = outwcs, 
-                    refxcol = 5, 
-                    refycol = 6, 
-                    refxyunits = 'degrees', 
-                    minobj = 5, 
-                    searchrad = 1000.0, 
-                    searchunits = 'pixels', 
-                    use2dhist = True, 
-                    see2dplot = False, 
-                    separation = 0.5, 
-                    tolerance = 1.0, 
-                    xoffset = 0.0, 
-                    yoffset = 0.0, 
-                    fitgeometry = 'shift', 
-                    interactive=False, 
-                    nclip = 3, 
-                    sigma = 3.0, 
-                    clobber=True) 
-            else:
-                
-                raise Exception('Need to specify reference catalog and reference image.')
-            
-                
-        else:
-            ### Needs to actually do tweakreg?
-            
-            pass
-            
-    
-        astrodrizzle.AstroDrizzle(self.root+'_flt.fits', 
-            clean=False, 
-            final_pixfrac=1.0, 
-            context=False, 
-            final_bits=576, 
-            resetbits=0, 
-            preserve=False, 
-            driz_cr_snr='8.0 5.0', 
-            driz_cr_scale = '2.5 0.7', 
-            wcskey= 'TWEAK')
-              
-    def coadd_reads(self):
-        
-        pass
 
     def make_pointing_asn(self):
         """ Makes a new association table for the reads extracted from a given IMA.
@@ -366,10 +308,10 @@ class DashData(object):
 
         # Create Primary HDU:
         hdr = fits.Header()
-        hdr['FILENAME'] = "'" + asn_filename + "'"
+        hdr['FILENAME'] = asn_filename
         hdr['FILETYPE'] = 'ASN_TABLE'
-        hdr['ASN_ID'] = "'" + self.root + "'"
-        hdr['ASN_TABLE'] = "'" + asn_filename + "'"
+        hdr['ASN_ID'] = self.root
+        hdr['ASN_TABLE'] = asn_filename
         hdr['COMMENT'] = "This association table is for the read differences for the IMA."
         primary_hdu = fits.PrimaryHDU(header=hdr)
 
@@ -396,6 +338,69 @@ class DashData(object):
 
         # Create property of the object that is the asn filename.
         self.asn_filename = asn_filename 
+        
+    def align_read(self):
+        
+        pass
+        
+    def align(self, align_method = 'CATALOG', ref_catalog = None, subtract_background = True):
+        
+        outshifts = 'shifts_{}.txt'.format(self.root)
+        outwcs = 'shifts_{}_wcs.fits'.format(self.root)
+        
+        if subtract_background:
+            self.subtract_background_reads()
+        
+        ### What other alignment methods are there? TWEAKREG, GAIA?
+        
+        if align_method == 'CATALOG': 
+            if (ref_catalog is not None):
+
+                input_images = glob('diff/{}_*_diff.fits'.format(self.root))
+                derp = list(map(updatewcs.updatewcs, input_images))
+
+                teal.unlearn('tweakreg')
+                teal.unlearn('imagefindpars')
+
+                tweakreg.TweakReg(input_images, # Pass input images
+                                  updatehdr=True, # update header with new WCS solution
+                                  imagefindcfg={'threshold':250.,'conv_width':2.5},# Detection parameters, threshold varies for different data
+                                  separation=0.0, # Allow for very small shifts
+                                  refcat=ref_catalog, # Use user supplied catalog (Gaia)
+                                  clean=True, # Get rid of intermediate files
+                                  interactive=False,
+                                  see2dplot=False,
+                                  shiftfile=True, # Save out shift file (so we can look at shifts later)
+                                  reusename=True,
+                                  fitgeometry='general') # Use the 6 parameter fit
+
+          
+            else:
+                
+                raise Exception('Need to specify reference catalog and reference image.')
+            
+                
+        else:
+            ### Needs to actually do tweakreg?
+            
+            pass
+            
+    
+        astrodrizzle.AstroDrizzle(self.asn_filename, 
+            clean=False, 
+            final_pixfrac=1.0, 
+            context=False, 
+            final_bits=576, 
+            resetbits=0, 
+            preserve=False, 
+            driz_cr_snr='8.0 5.0', 
+            driz_cr_scale = '2.5 0.7', 
+            wcskey= 'TWEAK')
+              
+    def coadd_reads(self):
+        
+        pass
+
 
     def run_reduction():
         pass
