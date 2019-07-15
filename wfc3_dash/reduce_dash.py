@@ -63,9 +63,20 @@ class DashData(object):
     
     def __init__(self,file_name=None):
         '''
-        The init method performs a series of tests to make sure that the file fed to 
-        the DashData class is a valid IMA file with units in e/s
-        '''
+		The init method performs a series of tests to make sure that the file fed to the DashData class is a valid IMA file with units in e/s. Will also add root attribute to DashData class.
+
+		Paramaters
+		---------------
+		self : object
+			DashData object created from an individual IMA file
+		file_name : fits file
+			Name of IMA file that is fed to DashData class
+
+		Outputs
+		-----------
+		N/A
+		'''
+
         if '_ima.fits' not in file_name: 
             raise Exception('Input needs to be an IMA file.')
         else:
@@ -110,7 +121,166 @@ class DashData(object):
                 print('Cannot read file.')
                 
         self.root = self.file_name.split('/')[-1].split('_ima')[0]
+    
+    def align(self, align_method = 'CATALOG', ref_catalog = None, subtract_background = True):
+
+    	'''
+		Aligns new FLT's to reference catalog.
+
+		Parameters
+		----------------
+		self : object
+			DashData object created from an individual IMA file.
+		align_method : string
+			Defines alignment method to be used. Default is CATALOG.
+		ref_catalog : cat file
+		Defines catalog that will be referenced for CATALOG alignment method.
+		ref_image : fits file
+			Defines reference image that will be referenced for 	CATALOG alignment method.
+		subtract_background : bool
+			If True, runs subtract_background_reads function.
+
+		Outputs
+		-----------
+		Aligned FLT : fits file
+		Aligned FLT's.
+		'''
         
+        outshifts = 'shifts_{}.txt'.format(self.root)
+        outwcs = 'shifts_{}_wcs.fits'.format(self.root)
+        
+        if subtract_background:
+            self.subtract_background_reads()
+        
+        ### What other alignment methods are there? TWEAKREG, GAIA?
+        
+        if align_method == 'CATALOG': 
+            if (ref_catalog is not None):
+
+                input_images = glob('diff/{}_*_diff.fits'.format(self.root))
+                derp = list(map(updatewcs.updatewcs, input_images))
+
+                teal.unlearn('tweakreg')
+                teal.unlearn('imagefindpars')
+
+                tweakreg.TweakReg(input_images, # Pass input images
+                                  updatehdr=True, # update header with new WCS solution
+                                  imagefindcfg={'threshold':250.,'conv_width':2.5},# Detection parameters, threshold varies for different data
+                                  separation=0.0, # Allow for very small shifts
+                                  refcat=ref_catalog, # Use user supplied catalog (Gaia)
+                                  clean=True, # Get rid of intermediate files
+                                  interactive=False,
+                                  see2dplot=False,
+                                  shiftfile=True, # Save out shift file (so we can look at shifts later)
+                                  reusename=True,
+                                  fitgeometry='general') # Use the 6 parameter fit
+
+          
+            else:
+                
+                raise Exception('Need to specify reference catalog and reference image.')
+            
+                
+        else:
+            ### Needs to actually do tweakreg?
+            
+            pass
+            
+    
+        astrodrizzle.AstroDrizzle(input_images, 
+            clean=False, 
+            final_pixfrac=1.0, 
+            context=False, 
+            final_bits=576, 
+            resetbits=0, 
+            preserve=False, 
+            driz_cr_snr='8.0 5.0', 
+            driz_cr_scale = '2.5 0.7', 
+            wcskey= 'TWEAK')    
+
+    def align_read(self):
+    	'''
+		Aligns new FLT's to one another.
+
+		Parameters
+		---------------
+		self : object
+			DashData object created from an individual IMA file.
+
+		Outputs
+		-----------
+		TBD
+		'''
+        pass
+
+    def coadd_reads(self):
+        
+        pass        
+
+    def fix_cosmic_rays(self):
+        
+        pass   
+
+    def make_pointing_asn(self):
+        """ Makes a new association table for the reads extracted from a given IMA.
+
+        Parameters
+        ----------
+        self : object
+            DashData object created from an individual IMA file. 
+
+        Outputs
+        ----------
+        ASN files : fits file
+            Fits file formatted as an association file that holds 
+            the names of the difference files created by split_ima
+            and the root name of the individual IMA file.
+        """
+        
+        asn_filename = 'diff/{}_asn.fits'.format(self.root)
+        asn_list = self.diff_files_list.copy()
+        asn_list.append(self.root)
+
+        # Create Primary HDU:
+        hdr = fits.Header()
+        hdr['FILENAME'] = asn_filename
+        hdr['FILETYPE'] = 'ASN_TABLE'
+        hdr['ASN_ID'] = self.root
+        hdr['ASN_TABLE'] = asn_filename
+        hdr['COMMENT'] = "This association table is for the read differences for the IMA."
+        primary_hdu = fits.PrimaryHDU(header=hdr)
+
+        # Create the information in the asn file
+        num_mem = len(asn_list)
+
+        asn_mem_names = np.array(asn_list)
+        asn_mem_types =  np.full(num_mem,'EXP-DTH',dtype=np.chararray)
+        asn_mem_types[-1] = 'PROD-DTH'
+        asn_mem_prsnt = np.ones(num_mem, dtype=np.bool_)
+        asn_mem_prsnt[-1] = 0
+
+        hdu_data = fits.BinTableHDU().from_columns([fits.Column(name='MEMNAME', format='14A', array=asn_mem_names), 
+                    fits.Column(name='MEMTYPE', format='14A', array=asn_mem_types), 
+                    fits.Column(name='MEMPRSNT', format='L', array=asn_mem_prsnt)])
+
+        # Create the final asn file
+        hdu = fits.HDUList([primary_hdu, hdu_data])
+
+        if 'EXTEND' not in hdu[0].header.keys():
+            hdu[0].header.update('EXTEND', True, after='NAXIS')
+        
+        hdu.writeto(asn_filename, overwrite=True)
+
+        # Create property of the object that is the asn filename.
+        self.asn_filename = asn_filename
+
+    def make_read_catalog(self):
+        
+        pass
+             
+    def run_reduction():
+
+        pass              
 
     def split_ima(self):
         ''' 
@@ -136,7 +306,7 @@ class DashData(object):
         NSAMP = self.ima_file[0].header['NSAMP']
         shape = self.ima_file['SCI',1].shape
     
-        cube = np.zeros((NSAMP, shape[0], shape[1]))
+        cube = np.zeros((NSAMP, shape[0], shape[1]), dtype='float32')
         dq = np.zeros((NSAMP, shape[0], shape[1]), dtype=np.int)
         time = np.zeros(NSAMP)
         
@@ -152,7 +322,7 @@ class DashData(object):
         
         self.dq = dq[1:]
         
-        self.readnoise_2D = np.zeros((1024,1024))
+        self.readnoise_2D = np.zeros((1024,1024), dtype='float32')
         self.readnoise_2D[512: ,0:512] += self.ima_file[0].header['READNSEA']
         self.readnoise_2D[0:512,0:512] += self.ima_file[0].header['READNSEB']
         self.readnoise_2D[0:512, 512:] += self.ima_file[0].header['READNSEC']
@@ -195,10 +365,10 @@ class DashData(object):
             hdu4.header['EXTVER'] = 1
             hdu5.header['EXTVER'] = 1
 
-
-            
             hdu = fits.HDUList([hdu0,hdu1,hdu2,hdu3,hdu4,hdu5])
             print('Writing {}_{:02d}_diff.fits'.format(self.root,j))
+
+            self.hdu = hdu
 
             if not os.path.exists('diff'):
                 os.mkdir('diff')
@@ -207,8 +377,47 @@ class DashData(object):
             hdu.writeto('diff/{}_{:02d}_diff.fits'.format(self.root,j), overwrite=True)
             
             self.diff_files_list.append('diff/{}_{:02d}'.format(self.root,j))
+
+    def subtract_background_flt(self):
+    '''
+	Performs median background subtraction for original FLT.
+
+	Parameters
+	---------------
+	self : object
+		DashData object created from an individual IMA file.
+
+
+	Outputs
+	-----------
+	DRZ image : fits file
+		Drizzled Image created from FLT
+	SEG image : fits file
+		Segmentation Image created from original FLT
+	'''
+        pass            
         
     def subtract_background_reads(self, subtract=True, reset_stars_dq=False):
+
+    	'''
+		Performs median background subtraction for each individual difference file.  Uses the DRZ and SEG images produced in FLT background subtraction.
+
+		Parameters
+		---------------
+		self : object
+			DashData object created from an individual IMA file.
+		subtract : bool
+			Does not subtract the background by default, but still 	writes it to the header. Set to True to subtract background.
+		reset_stars_dq : bool
+			Set to True to reset cosmic rays within objects to 0 	because the centers of stars are flagged.
+
+		Outputs
+		-----------
+		Background Subtracted N files : fits files
+		Fits files of the difference between adjacent IMA reads
+		that have been backgorund subtracted.
+		'''
+
         
         ### I think this should subtract the background on only one FLT
         ### But currently loops over all of them
@@ -274,152 +483,20 @@ class DashData(object):
             
             ### Should these background subtracted reads substitute the ones saved in split_ima?
                     
-    def subtract_background_flt(self):
-        
-        pass
-        
-    def fix_cosmic_rays(self):
-        
-        pass
-        
-    def make_read_catalog(self):
-        
-        pass
-
-    def make_pointing_asn(self):
-        """ Makes a new association table for the reads extracted from a given IMA.
-
-        Parameters
-        ----------
-        self : object
-            DashData object created from an individual IMA file. 
-
-        Outputs
-        ----------
-        ASN files : fits file
-            Fits file formatted as an association file that holds 
-            the names of the difference files created by split_ima
-            and the root name of the individual IMA file.
-        """
-        
-        asn_filename = 'diff/{}_asn.fits'.format(self.root)
-        asn_list = self.diff_files_list.copy()
-        asn_list.append(self.root)
-
-        # Create Primary HDU:
-        hdr = fits.Header()
-        hdr['FILENAME'] = asn_filename
-        hdr['FILETYPE'] = 'ASN_TABLE'
-        hdr['ASN_ID'] = self.root
-        hdr['ASN_TABLE'] = asn_filename
-        hdr['COMMENT'] = "This association table is for the read differences for the IMA."
-        primary_hdu = fits.PrimaryHDU(header=hdr)
-
-        # Create the information in the asn file
-        num_mem = len(asn_list)
-
-        asn_mem_names = np.array(asn_list)
-        asn_mem_types =  np.full(num_mem,'EXP-DTH',dtype=np.chararray)
-        asn_mem_types[-1] = 'PROD-DTH'
-        asn_mem_prsnt = np.ones(num_mem, dtype=np.bool_)
-        asn_mem_prsnt[-1] = 0
-
-        hdu_data = fits.BinTableHDU().from_columns([fits.Column(name='MEMNAME', format='14A', array=asn_mem_names), 
-                    fits.Column(name='MEMTYPE', format='14A', array=asn_mem_types), 
-                    fits.Column(name='MEMPRSNT', format='L', array=asn_mem_prsnt)])
-
-        # Create the final asn file
-        hdu = fits.HDUList([primary_hdu, hdu_data])
-
-        if 'EXTEND' not in hdu[0].header.keys():
-            hdu[0].header.update('EXTEND', True, after='NAXIS')
-        
-        hdu.writeto(asn_filename, overwrite=True)
-
-        # Create property of the object that is the asn filename.
-        self.asn_filename = asn_filename 
-        
-    def align_read(self):
-        
-        pass
-        
-    def align(self, align_method = 'CATALOG', ref_catalog = None, subtract_background = True):
-        
-        outshifts = 'shifts_{}.txt'.format(self.root)
-        outwcs = 'shifts_{}_wcs.fits'.format(self.root)
-        
-        if subtract_background:
-            self.subtract_background_reads()
-        
-        ### What other alignment methods are there? TWEAKREG, GAIA?
-        
-        if align_method == 'CATALOG': 
-            if (ref_catalog is not None):
-
-                input_images = glob('diff/{}_*_diff.fits'.format(self.root))
-                derp = list(map(updatewcs.updatewcs, input_images))
-
-                teal.unlearn('tweakreg')
-                teal.unlearn('imagefindpars')
-
-                tweakreg.TweakReg(input_images, # Pass input images
-                                  updatehdr=True, # update header with new WCS solution
-                                  imagefindcfg={'threshold':250.,'conv_width':2.5},# Detection parameters, threshold varies for different data
-                                  separation=0.0, # Allow for very small shifts
-                                  refcat=ref_catalog, # Use user supplied catalog (Gaia)
-                                  clean=True, # Get rid of intermediate files
-                                  interactive=False,
-                                  see2dplot=False,
-                                  shiftfile=True, # Save out shift file (so we can look at shifts later)
-                                  reusename=True,
-                                  fitgeometry='general') # Use the 6 parameter fit
-
-          
-            else:
-                
-                raise Exception('Need to specify reference catalog and reference image.')
-            
-                
-        else:
-            ### Needs to actually do tweakreg?
-            
-            pass
-            
-    
-        astrodrizzle.AstroDrizzle(self.asn_filename, 
-            clean=False, 
-            final_pixfrac=1.0, 
-            context=False, 
-            final_bits=576, 
-            resetbits=0, 
-            preserve=False, 
-            driz_cr_snr='8.0 5.0', 
-            driz_cr_scale = '2.5 0.7', 
-            wcskey= 'TWEAK')
-              
-    def coadd_reads(self):
-        
-        pass
-
-
-    def run_reduction():
-        pass
-
-
 def main():
-    ''' 
-    Main function of reduce_dash. 
-    
-    Parameters
-    ----------
-     : 
-        
-    Outputs
-    ----------
-     : 
-         
     '''
-    
+	Main function of reduce_dash.
+
+	Parameters
+	----------------
+	N/A
+
+	Outputs
+	-----------
+	Mosaic : fits file
+		Final mosaic of all DASH exposures reduced by DashData class.
+	'''
+	
     pass
 
 
