@@ -124,28 +124,27 @@ class DashData(object):
     
     def align(self, align_method = 'CATALOG', ref_catalog = None, subtract_background = True):
 
-    	'''
-		Aligns new FLT's to reference catalog.
+        '''
+        Aligns new FLT's to reference catalog.
 
-		Parameters
-		----------------
-		self : object
-			DashData object created from an individual IMA file.
-		align_method : string
-			Defines alignment method to be used. Default is CATALOG.
-		ref_catalog : cat file
-		Defines catalog that will be referenced for CATALOG alignment method.
-		ref_image : fits file
-			Defines reference image that will be referenced for 	CATALOG alignment method.
-		subtract_background : bool
-			If True, runs subtract_background_reads function.
+        Parameters
+        ----------
+        self : object
+            DashData object created from an individual IMA file.
+        align_method : string
+            Defines alignment method to be used. Default is CATALOG.
+        ref_catalog : cat file
+            Defines reference image that will be referenced for CATALOG alignment method.
+        subtract_background : bool
+            If True, runs subtract_background_reads functions.
 
-		Outputs
-		-----------
-		Aligned FLT : fits file
-		Aligned FLT's.
-		'''
-        
+        Outputs
+        -------
+        Aligned FLT : fits file
+            Aligned FLT's
+
+        '''
+
         outshifts = 'shifts_{}.txt'.format(self.root)
         outwcs = 'shifts_{}_wcs.fits'.format(self.root)
         
@@ -199,18 +198,19 @@ class DashData(object):
             wcskey= 'TWEAK')    
 
     def align_read(self):
-    	'''
-		Aligns new FLT's to one another.
+        '''
+        Aligns new FLT's to one another.
 
-		Parameters
-		---------------
-		self : object
-			DashData object created from an individual IMA file.
+        Parameters
+        ----------
+        self : object
+            DashData object created from an individual IMA file.
 
-		Outputs
-		-----------
-		TBD
-		'''
+        Outputs
+        -------
+        TBD
+        '''
+
         pass
 
     def coadd_reads(self):
@@ -379,46 +379,45 @@ class DashData(object):
             self.diff_files_list.append('diff/{}_{:02d}'.format(self.root,j))
 
     def subtract_background_flt(self):
-    '''
-	Performs median background subtraction for original FLT.
+        '''
+        Performs median background subtraction for original FLT.
 
-	Parameters
-	---------------
-	self : object
-		DashData object created from an individual IMA file.
+        Parameters
+        ----------
+        self : object
+            DashData object created from an individual IMA file.
 
+        Outputs
+        -------
+        DRZ image : fits file
+            Drizzled Image created from FLT
+        SEG image : fits file
+            Segmentation Image created form original FLT
+        '''
 
-	Outputs
-	-----------
-	DRZ image : fits file
-		Drizzled Image created from FLT
-	SEG image : fits file
-		Segmentation Image created from original FLT
-	'''
         pass            
         
     def subtract_background_reads(self, subtract=True, reset_stars_dq=False):
+        '''
+        Performs median background subtraction for each individual difference file.
+        Uses the DRZ and SEF images produced in FLT background subtraction.
 
-    	'''
-		Performs median background subtraction for each individual difference file.  Uses the DRZ and SEG images produced in FLT background subtraction.
+        Parameters
+        ----------
+        self : object
+            DashData object created from an individual IMA file.
+        subtract : bool
+            Does not subtract the background by default, but still writes it to the header.
+            Set to True to subtract background.
+        reset_stars_dq : bool
+            Set to True to reset cosmic rays within objects to 0 because the centers of stars are flagged.
 
-		Parameters
-		---------------
-		self : object
-			DashData object created from an individual IMA file.
-		subtract : bool
-			Does not subtract the background by default, but still 	writes it to the header. Set to True to subtract background.
-		reset_stars_dq : bool
-			Set to True to reset cosmic rays within objects to 0 	because the centers of stars are flagged.
+        Outputs
+        -------
+        Background Subtracted N files : fits files
+            Fits files of the difference between adjacent IMA reads that have been background subtracted.
+        '''
 
-		Outputs
-		-----------
-		Background Subtracted N files : fits files
-		Fits files of the difference between adjacent IMA reads
-		that have been backgorund subtracted.
-		'''
-
-        
         ### I think this should subtract the background on only one FLT
         ### But currently loops over all of them
         
@@ -485,18 +484,18 @@ class DashData(object):
                     
 def main():
     '''
-	Main function of reduce_dash.
+    Main function of reduce_dash.
 
-	Parameters
-	----------------
-	N/A
+    Parameters
+    ----------------
+    N/A
 
-	Outputs
-	-----------
-	Mosaic : fits file
-		Final mosaic of all DASH exposures reduced by DashData class.
-	'''
-	
+    Outputs
+    -----------
+    Mosaic : fits file
+    	Final mosaic of all DASH exposures reduced by DashData class.
+    '''
+
     pass
 
 
