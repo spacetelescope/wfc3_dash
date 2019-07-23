@@ -58,10 +58,14 @@ from utils import get_IDCtable
 from glob import glob #Needed for gaia alignment
 from stsci.tools import teal #Needed for gaia alignment
 from stwcs import updatewcs #Needed for gaia alignment
+from astropy.convolution import Gaussian2DKernel #Needed for create_seg_map
+from astropy.stats import gaussian_fwhm_to_sigma #Needed for create_seg_map
+from photutils import detect_sources #Needed for create_seg_map
+from photutils import detect_threshold #Needed for create_seg_map
 
 class DashData(object):
     
-    def __init__(self,file_name=None):
+    def __init__(self,file_name=None, flt_file_name=None):
         '''
 		The init method performs a series of tests to make sure that the file fed to the DashData class is a valid IMA file with units in e/s. Will also add root attribute to DashData class.
 
@@ -119,10 +123,12 @@ class DashData(object):
 
             except IOError:
                 print('Cannot read file.')
-                
+        
+        self.flt_file_name = fits.open(flt_file_name)       
         self.root = self.file_name.split('/')[-1].split('_ima')[0]
     
-    def align(self, align_method = 'CATALOG', ref_catalog = None, subtract_background = True):
+    def align(self, align_method = None, ref_catalog = None, drz_output=None, subtract_background = False, wcsname = 'DASH', 
+              threshold = 50., cw = 3.5, updatehdr=True, updateWCS=True, searchrad=20., astrodriz=True, updatewcsfn=True):
 
         '''
         Aligns new FLT's to reference catalog.
@@ -144,6 +150,10 @@ class DashData(object):
             Aligned FLT's
 
         '''
+        if drz_output is None:
+            drz_output=self.root
+
+        input_images = sorted(glob('diff/{}_*_diff.fits'.format(self.root)))
 
         outshifts = 'shifts_{}.txt'.format(self.root)
         outwcs = 'shifts_{}_wcs.fits'.format(self.root)
@@ -156,48 +166,95 @@ class DashData(object):
         if align_method == 'CATALOG': 
             if (ref_catalog is not None):
 
-                input_images = glob('diff/{}_*_diff.fits'.format(self.root))
-                derp = list(map(updatewcs.updatewcs, input_images))
+                if updatewcsfn is True:
+                    wcs = list(map(updatewcs.updatewcs, input_images))
+
 
                 teal.unlearn('tweakreg')
                 teal.unlearn('imagefindpars')
 
                 tweakreg.TweakReg(input_images, # Pass input images
-                                  updatehdr=True, # update header with new WCS solution
-                                  imagefindcfg={'threshold':250.,'conv_width':2.5},# Detection parameters, threshold varies for different data
-                                  separation=0.0, # Allow for very small shifts
+                                  updatehdr=updatehdr, # update header with new WCS solution
+                                  updatewcs=updateWCS,
+                                  writecat=True,
+                                  verbose=True,
+                                  imagefindcfg={'threshold':threshold,'conv_width':cw},# Detection parameters, threshold varies for different data
                                   refcat=ref_catalog, # Use user supplied catalog (Gaia)
-                                  clean=True, # Get rid of intermediate files
+                                  clean=False, # Get rid of intermediate files
                                   interactive=False,
                                   see2dplot=False,
                                   shiftfile=True, # Save out shift file (so we can look at shifts later)
+                                  outshifts=outshifts,
+                                  outwcs=outwcs,
+                                  wcsname=wcsname, # Give our WCS a new name
+                                  headerlet = False,
+                                  minobj = 5, 
+                                  searchrad = searchrad, 
+                                  searchunits = 'pixels', 
+                                  use2dhist = True,
                                   reusename=True,
-                                  fitgeometry='general') # Use the 6 parameter fit
+                                  fitgeometry='rscale',
+                                  nclip=3,
+                                  sigma=3.0,
+                                  clobber=True,
+                                  dqbits=0)
 
-          
             else:
                 
                 raise Exception('Need to specify reference catalog and reference image.')
             
                 
         else:
-            ### Needs to actually do tweakreg?
             
-            pass
+                if updatewcsfn is True:
+                    wcs = list(map(updatewcs.updatewcs, input_images))
+
+                teal.unlearn('tweakreg')
+                teal.unlearn('imagefindpars')
+
+                tweakreg.TweakReg(input_images, # Pass input images
+                                  updatehdr=updatehdr, # update header with new WCS solution
+                                  updatewcs=updateWCS,
+                                  writecat=True,
+                                  verbose=True,
+                                  imagefindcfg={'threshold':threshold,'conv_width':cw},# Detection parameters, threshold varies for different data
+                                  refcat=ref_catalog, # Use user supplied catalog (Gaia)
+                                  clean=False, # Get rid of intermediate files
+                                  interactive=False,
+                                  see2dplot=False,
+                                  shiftfile=True, # Save out shift file (so we can look at shifts later)
+                                  outshifts=outshifts,
+                                  outwcs=outwcs,
+                                  wcsname=wcsname, # Give our WCS a new name
+                                  headerlet = False,
+                                  minobj = 5, 
+                                  searchrad = searchrad, 
+                                  searchunits = 'pixels', 
+                                  use2dhist = True,
+                                  reusename=True,
+                                  fitgeometry='rscale',
+                                  nclip=3,
+                                  sigma=3.0,
+                                  clobber=True,
+                                  dqbits=0)
             
+                pass
+        
+        if astrodriz is True:    
     
-        astrodrizzle.AstroDrizzle(input_images, 
-            clean=False, 
-            final_pixfrac=1.0, 
-            context=False, 
-            final_bits=576, 
-            resetbits=0, 
-            preserve=False, 
-            driz_cr_snr='8.0 5.0', 
-            driz_cr_scale = '2.5 0.7', 
-            wcskey= 'TWEAK')    
+            astrodrizzle.AstroDrizzle(input_images, 
+                output=drz_output,
+                clean=False, 
+                final_pixfrac=1.0, 
+                context=False, 
+                final_bits=576, 
+                resetbits=0, 
+                preserve=False, 
+                driz_cr_snr='8.0 5.0', 
+                driz_cr_scale = '2.5 0.7')    
 
     def align_read(self):
+        #dont need?
         '''
         Aligns new FLT's to one another.
 
@@ -216,6 +273,18 @@ class DashData(object):
     def coadd_reads(self):
         
         pass        
+
+    def create_seg_map(self):
+
+        flt = self.flt_file_name
+        data = flt[1].data
+
+        threshold = detect_threshold(data, snr=2.)
+
+        sigma = 3.0 * gaussian_fwhm_to_sigma    # FWHM = 3.
+        kernel.normalize()
+        segm = detect_sources(data, threshold, npixels=5, filter_kernel=kernel)
+
 
     def fix_cosmic_rays(self):
         
@@ -344,6 +413,7 @@ class DashData(object):
             science_data = diff[j,:,:]/dt[j]
             hdu1 = fits.ImageHDU(data = science_data[5:-5,5:-5], header = self.ima_file['SCI',NSAMP-j-1].header, name='SCI')
             hdu1.header['EXTVER'] = 1
+            hdu1.header['ROOTNAME'] = '{}_{:02d}'.format(self.root,j)
 
             var = 2*self.readnoise_2D + science_data*FLAT['SCI'].data*dt[j]
             err = np.sqrt(var)/dt[j]
@@ -400,7 +470,7 @@ class DashData(object):
     def subtract_background_reads(self, subtract=True, reset_stars_dq=False):
         '''
         Performs median background subtraction for each individual difference file.
-        Uses the DRZ and SEF images produced in FLT background subtraction.
+        Uses the DRZ and SEG images produced in FLT background subtraction.
 
         Parameters
         ----------
