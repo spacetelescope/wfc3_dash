@@ -62,6 +62,7 @@ from astropy.convolution import Gaussian2DKernel #Needed for create_seg_map
 from astropy.stats import gaussian_fwhm_to_sigma #Needed for create_seg_map
 from photutils import detect_sources #Needed for create_seg_map
 from photutils import detect_threshold #Needed for create_seg_map
+import lacosmicx #for fix_cosmic_rays
 
 class DashData(object):
     
@@ -124,11 +125,11 @@ class DashData(object):
             except IOError:
                 print('Cannot read file.')
         
-        self.flt_file_name = fits.open(flt_file_name)       
+        self.flt_file_name = flt_file_name  
         self.root = self.file_name.split('/')[-1].split('_ima')[0]
     
-    def align(self, align_method = None, ref_catalog = None, drz_output=None, subtract_background = False, wcsname = 'DASH', 
-              threshold = 50., cw = 3.5, updatehdr=True, updateWCS=True, searchrad=20., astrodriz=True, updatewcsfn=True):
+    def align(self, align_method = None, ref_catalog = None, drz_output=None, subtract_background = True, wcsname = 'DASH', 
+              threshold = 50., cw = 3.5, updatehdr=True, updateWCS=True, searchrad=20., astrodriz=True):
 
         '''
         Aligns new FLT's to reference catalog.
@@ -166,8 +167,7 @@ class DashData(object):
         if align_method == 'CATALOG': 
             if (ref_catalog is not None):
 
-                if updatewcsfn is True:
-                    wcs = list(map(updatewcs.updatewcs, input_images))
+                wcs = list(map(updatewcs.updatewcs, input_images))
 
 
                 teal.unlearn('tweakreg')
@@ -206,8 +206,7 @@ class DashData(object):
                 
         else:
             
-                if updatewcsfn is True:
-                    wcs = list(map(updatewcs.updatewcs, input_images))
+                wcs = list(map(updatewcs.updatewcs, input_images))
 
                 teal.unlearn('tweakreg')
                 teal.unlearn('imagefindpars')
@@ -253,42 +252,48 @@ class DashData(object):
                 driz_cr_snr='8.0 5.0', 
                 driz_cr_scale = '2.5 0.7')    
 
-    def align_read(self):
-        #dont need?
-        '''
-        Aligns new FLT's to one another.
-
-        Parameters
-        ----------
-        self : object
-            DashData object created from an individual IMA file.
-
-        Outputs
-        -------
-        TBD
-        '''
-
-        pass
-
-    def coadd_reads(self):
-        
-        pass        
-
     def create_seg_map(self):
 
-        flt = self.flt_file_name
+        flt = fits.open(self.flt_file_name)
         data = flt[1].data
 
-        threshold = detect_threshold(data, snr=2.)
+        threshold = detect_threshold(data, snr=3.)
 
         sigma = 3.0 * gaussian_fwhm_to_sigma    # FWHM = 3.
+        kernel = Gaussian2DKernel(sigma, x_size=3, y_size=3)
         kernel.normalize()
-        segm = detect_sources(data, threshold, npixels=5, filter_kernel=kernel)
+        segm = detect_sources(data, threshold, npixels=10, filter_kernel=kernel)
+
+        hdu = fits.PrimaryHDU(segm.data)
+        hdu.writeto(('{}_seg.fits').format(self.root), clobber=True)
 
 
     def fix_cosmic_rays(self):
-        
-        pass   
+
+        asn_exposures = sorted(glob('diff/' + self.root + '*_diff.fits'))
+
+        seg = fits.open('{}_seg.fits'.format(self.root)) 
+        seg_data = np.cast[np.float32](seg[0].data)
+
+        flt_full = fits.open(self.flt_file_name)
+        flt_full_wcs = stwcs.wcsutil.HSTWCS(flt_full, ext=1)
+
+        crmask, clean = lacosmicx.lacosmicx(flt_full[1].data, gain=1.0, readnoise=0.12, 
+            sigclip = 4.0, sigfrac = 0.5, objlim = 10.0, 
+            satlevel=-1., pssl = 0., verbose=True)
+
+        for exp in asn_exposures:
+
+            flt = fits.open(exp, mode = 'update')
+
+            flagged_stars = ((flt['DQ'].data & 4096) > 0) & (seg_data > 0)
+            flt['DQ'].data[flagged_stars] -= 4096
+
+            new_cr = (crmask == 1) & ((flt['DQ'].data & 4096) == 0)
+
+            flt['DQ'].data[new_cr] += 4096
+
+            flt.flush()
 
     def make_pointing_asn(self):
         """ Makes a new association table for the reads extracted from a given IMA.
@@ -347,7 +352,10 @@ class DashData(object):
         
         pass
              
-    def run_reduction():
+    def run_reduction(self):
+        ''' 
+        wrapper
+        '''
 
         pass              
 
@@ -447,25 +455,6 @@ class DashData(object):
             hdu.writeto('diff/{}_{:02d}_diff.fits'.format(self.root,j), overwrite=True)
             
             self.diff_files_list.append('diff/{}_{:02d}'.format(self.root,j))
-
-    def subtract_background_flt(self):
-        '''
-        Performs median background subtraction for original FLT.
-
-        Parameters
-        ----------
-        self : object
-            DashData object created from an individual IMA file.
-
-        Outputs
-        -------
-        DRZ image : fits file
-            Drizzled Image created from FLT
-        SEG image : fits file
-            Segmentation Image created form original FLT
-        '''
-
-        pass            
         
     def subtract_background_reads(self, subtract=True, reset_stars_dq=False):
         '''
@@ -490,16 +479,9 @@ class DashData(object):
 
         ### I think this should subtract the background on only one FLT
         ### But currently loops over all of them
-        
-        # read in DRZ and SEG images produced for the FLT
-        # should these be saved in the class variables?
-        
-        ### UNCOMMENT THESE ONCE AVAILABLE
-        #ref = fits.open('{}_drz_sci.fits'.format(self.root))
-        #ref_wcs = stwcs.wcsutil.HSTWCS(ref, ext=0)
 
-        #seg = fits.open('{}_drz_seg.fits'.format(self.root))    
-        #seg_data = np.cast[np.float32](seg[0].data)
+        seg = fits.open('{}_seg.fits'.format(self.root))    
+        seg_data = np.cast[np.float32](seg[0].data)
         
         yi, xi = np.indices((1014,1014))
         
@@ -510,16 +492,8 @@ class DashData(object):
         
             diff = fits.open('{}_diff.fits'.format(exp), mode='update')
             diff_wcs = stwcs.wcsutil.HSTWCS(diff, ext=1)
-            
-            if ii == 0:
-                ### Only done for the first one because it is just used as a mask
-                print('Segmentation image: {}_blot.fits'.format(exp))
                 
-                ### UNCOMMENT THESE ONCE THE SEG MAP IS AVAILABLE
-                #blotted_seg = astrodrizzle.ablot.do_blot(seg_data, ref_wcs, diff_wcs, 1, coeffs=True, interp='nearest', sinscl=1.0, stepsize=10, wcsmap=None)         
-                blotted_seg = np.zeros((1014,1014))
-                
-            mask = (blotted_seg == 0) & (diff['DQ'].data == 0) & (diff[1].data > -1) & (xi > 10) & (yi > 10) & (xi < 1004) & (yi < 1004)
+            mask = (seg_data == 0) & (diff['DQ'].data == 0) & (diff[1].data > -1) & (xi > 10) & (yi > 10) & (xi < 1004) & (yi < 1004)
             mask &= (diff[1].data < 5*np.median(diff[1].data[mask]))
             data_range = np.percentile(diff[1].data[mask], [2.5, 97.5])
             mask &= (diff[1].data >= data_range[0]) & (diff[1].data <= data_range[1])
@@ -552,20 +526,68 @@ class DashData(object):
             
             ### Should these background subtracted reads substitute the ones saved in split_ima?
                     
-def main():
+def main(ima_file_name = None, flt_file_name = None, 
+         align_method = None, ref_catalog = None, 
+         drz_output=None, subtract_background = False, 
+         wcsname = 'DASH', threshold = 50., cw = 3.5, 
+         updatehdr=True, updateWCS=True, 
+         searchrad=20., 
+         astrodriz=True):
+
     '''
-    Main function of reduce_dash.
+    Runs entire DashData pipeline under a single function.
 
     Parameters
-    ----------------
-    N/A
+    ----------
+    ima_file_name : str
+        File name of ima file.
+    flt_file_name : str
+        File name of FLT file.
+    align_method : str, optional
+        Method to align difference files using TweakReg. Default is None, which aligns reads to the first read.
+        Setting align_method equal to 'CATALOG' will align the reads to a catalog.
+    ref_catalog : str, optional
+        Catalog to be aligned to if using CATALOG align method.
+    drz_output : str, optional
+        Name to call final drizzled output image ( + '_drz_sci.fits' ). Default is root_name + '_drz_sci.fits'.
+    subtract_background : bool
+        Determines whether background is subtracted or not during align function. Default is False since during this main function,
+        the background is subtracted separately.
+    wcsname : str
+        Name for WCS during TweakReg.
+    threshold : float
+        qwerty
+    cw : float
+        qwerty
+    updatehdr : bool
+        Determines whether to update headers during TweakReg. Default is True.
+    updateWCS : bool
+        Determines whether to update WCS information during TweakReg. Default is True.
+    searchred : float
+        qwerty
+    astrodriz : bool
+        Determines whether or not to run astrodrizzle. Default is True.
 
     Outputs
-    -----------
-    Mosaic : fits file
-    	Final mosaic of all DASH exposures reduced by DashData class.
+    -------
+    stuff : stuff
+        stuff
+    Drizzled science image : fits
+        Drizzled science image from one exposure reduced using the DASH pipeline.
+    Weighted science image : fits
+        Weighted drizzled science image from one exposure reduced using the DASH pipeline.
     '''
-
-    pass
+    
+    myDash = DashData(ima_file_name, flt_file_name)
+    myDash.split_ima()
+    myDash.create_seg_map()
+    myDash.subtract_background_reads()
+    myDash.fix_cosmic_rays()
+    myDash.align(align_method = align_method, ref_catalog = ref_catalog, drz_output=drz_output, 
+                 subtract_background = subtract_background, 
+                 wcsname = wcsname, threshold = threshold, cw = cw, 
+                 updatehdr=updatehdr, updateWCS=updateWCS, 
+                 searchrad=searchrad, 
+                 astrodriz=astrodriz)
 
 
