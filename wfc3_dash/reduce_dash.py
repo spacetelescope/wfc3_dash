@@ -138,18 +138,23 @@ class DashData(object):
         ----------
         self : object
             DashData object created from an individual IMA file.
-        align_method : string
+        align_method : string, optional
             Defines alignment method to be used. Default is CATALOG.
-        ref_catalog : cat file
+        ref_catalog : cat file, optional
             Defines reference image that will be referenced for CATALOG alignment method.
-        subtract_background : bool
+        subtract_background : bool, optional
             If True, runs subtract_background_reads functions.
 
         Outputs
         -------
-        Aligned FLT : fits file
-            Aligned FLT's
-
+        Shifts file : txt file
+            File containing shifts during TweakReg
+        WCS Shifts file : fits filr
+            File containing WCS shifts during TweakReg
+        Aligned FLT's : fits file
+            Same diff files created in split_ima that have been aligned using TweakReg
+        Drizzled Image : fits file
+            Setting astrodriz to True will output a drizzled image form a single exposure (produced only if astrodriz is set to True)
         '''
         if drz_output is None:
             drz_output=self.root
@@ -162,8 +167,6 @@ class DashData(object):
         if subtract_background:
             self.subtract_background_reads()
         
-        ### What other alignment methods are there? TWEAKREG, GAIA?
-        
         if align_method == 'CATALOG': 
             if (ref_catalog is not None):
 
@@ -173,20 +176,20 @@ class DashData(object):
                 teal.unlearn('tweakreg')
                 teal.unlearn('imagefindpars')
 
-                tweakreg.TweakReg(input_images, # Pass input images
-                                  updatehdr=updatehdr, # update header with new WCS solution
+                tweakreg.TweakReg(input_images,
+                                  updatehdr=updatehdr, 
                                   updatewcs=updateWCS,
                                   writecat=True,
                                   verbose=True,
-                                  imagefindcfg={'threshold':threshold,'conv_width':cw},# Detection parameters, threshold varies for different data
-                                  refcat=ref_catalog, # Use user supplied catalog (Gaia)
-                                  clean=False, # Get rid of intermediate files
+                                  imagefindcfg={'threshold':threshold,'conv_width':cw},
+                                  refcat=ref_catalog, 
+                                  clean=False, 
                                   interactive=False,
                                   see2dplot=False,
-                                  shiftfile=True, # Save out shift file (so we can look at shifts later)
+                                  shiftfile=True, 
                                   outshifts=outshifts,
                                   outwcs=outwcs,
-                                  wcsname=wcsname, # Give our WCS a new name
+                                  wcsname=wcsname,
                                   headerlet = False,
                                   minobj = 5, 
                                   searchrad = searchrad, 
@@ -211,20 +214,20 @@ class DashData(object):
                 teal.unlearn('tweakreg')
                 teal.unlearn('imagefindpars')
 
-                tweakreg.TweakReg(input_images, # Pass input images
-                                  updatehdr=updatehdr, # update header with new WCS solution
+                tweakreg.TweakReg(input_images, 
+                                  updatehdr=updatehdr, 
                                   updatewcs=updateWCS,
                                   writecat=True,
                                   verbose=True,
-                                  imagefindcfg={'threshold':threshold,'conv_width':cw},# Detection parameters, threshold varies for different data
-                                  refcat=ref_catalog, # Use user supplied catalog (Gaia)
-                                  clean=False, # Get rid of intermediate files
+                                  imagefindcfg={'threshold':threshold,'conv_width':cw},
+                                  refcat=ref_catalog,
+                                  clean=False, 
                                   interactive=False,
                                   see2dplot=False,
-                                  shiftfile=True, # Save out shift file (so we can look at shifts later)
+                                  shiftfile=True, 
                                   outshifts=outshifts,
                                   outwcs=outwcs,
-                                  wcsname=wcsname, # Give our WCS a new name
+                                  wcsname=wcsname, 
                                   headerlet = False,
                                   minobj = 5, 
                                   searchrad = searchrad, 
@@ -253,6 +256,19 @@ class DashData(object):
                 driz_cr_scale = '2.5 0.7')    
 
     def create_seg_map(self):
+        '''
+        Creates segmentation map, from original FLT file, that is used in background subtraction and to fix cosmic rays.
+
+        Parameters
+        ----------
+        self : object
+            DashData object created from an individual IMA file.
+
+        Output
+        ------
+        Segmentation Image : fits
+            Segmentation map
+        '''
 
         flt = fits.open(self.flt_file_name)
         data = flt[1].data
@@ -269,6 +285,19 @@ class DashData(object):
 
 
     def fix_cosmic_rays(self):
+    	'''
+        Resets cosmic rays within the seg maps of objects and uses L.A.Cosmic to find them again.
+
+        Parameters
+        ----------
+        self : object
+            DashData object created from an individual IMA file.
+
+        Output
+        ------
+        Fixed for cosmic rays diff files : fits
+            Same diff files created in split_ima that have now been corrected for cosmic ray errors.
+        '''
 
         asn_exposures = sorted(glob('diff/' + self.root + '*_diff.fits'))
 
@@ -296,7 +325,8 @@ class DashData(object):
             flt.flush()
 
     def make_pointing_asn(self):
-        """ Makes a new association table for the reads extracted from a given IMA.
+        """ 
+        Makes a new association table for the reads extracted from a given IMA.
 
         Parameters
         ----------
@@ -570,8 +600,14 @@ def main(ima_file_name = None, flt_file_name = None,
 
     Outputs
     -------
-    stuff : stuff
-        stuff
+    N files : fits files
+        Fits files of the difference between adjacent IMA reads.
+    N files : fits files
+        Fits files of the difference between adjacent IMA reads.
+    Shifts file : txt file
+        File containing shifts during TweakReg
+    WCS Shifts file : fits filr
+        File containing WCS shifts during TweakReg
     Drizzled science image : fits
         Drizzled science image from one exposure reduced using the DASH pipeline.
     Weighted science image : fits
