@@ -82,6 +82,8 @@ class DashData(object):
 			DashData object created from an individual IMA file
 		file_name : fits file
 			Name of IMA file that is fed to DashData class
+        flt_file_name : fits file
+            Name of FLT file that is fed to DashData class
 
 		Outputs
 		-----------
@@ -134,11 +136,14 @@ class DashData(object):
         self.flt_file_name = flt_file_name  
         self.root = self.file_name.split('/')[-1].split('_ima')[0]
     
-    def align(self, align_method = None, ref_catalog = None, 
-              drz_output=None, subtract_background = True, wcsname = 'DASH', 
-              threshold = 50., cw = 3.5, updatehdr=True, updateWCS=True, 
-              searchrad=20., astrodriz=True, create_diff_source_lists=True, 
-              cat_file='diff_catfile.cat'):
+    def align(self, subtract_background = True, 
+              align_method = None, ref_catalog = None, 
+              create_diff_source_lists=True,
+              updatehdr=True, updateWCS=True, wcsname = 'DASH', 
+              threshold = 50., cw = 3.5, 
+              searchrad=20., astrodriz=True, 
+              cat_file='diff_catfile.cat',
+              drz_output=None,):
 
         '''
         Aligns new FLT's to reference catalog.
@@ -147,12 +152,31 @@ class DashData(object):
         ----------
         self : object
             DashData object created from an individual IMA file.
-        align_method : string, optional
-            Defines alignment method to be used. Default is CATALOG.
-        ref_catalog : cat file, optional
-            Defines reference image that will be referenced for CATALOG alignment method.
         subtract_background : bool, optional
             If True, runs subtract_background_reads functions.
+        align_method : string, optional
+            Defines alignment method to be used. Default is None (input files will align to each other).
+        ref_catalog : cat file, optional
+            Defines reference image that will be referenced for CATALOG alignment method.
+        create_diff_source_lists : bool, optional
+            Specifies whether or not to create a segmentation image and source list from the difference files
+        updatehdr : bool, optional
+            Specifies whether to update the headers after aligning during TweakReg. Default is True.
+        updateWCS : bool, optional
+            Specifies whether to update the WCS after aligning during TweakReg. Default is True.
+        wcsname : str, optional (as long as name you choose doesn't already exist)
+            Specifies name of WCS. Default is 'DASH'
+        threshold : float, optional
+        cw : float, optional
+        searchrad : float, optional
+            Radius (in pixels) that TweakReg will search around sources to find matches. Default is 20 pixels.
+        astrodriz : bool, optional
+            Specifies whether to drizzle images together using Astrodrizzle. Default is True
+        cat_file : str, optional
+            Name of catfile to be used to align sources in TweakReg. Default is the catfile created by setting create_diff_source_lists to True, diff_catfile.cat
+        drz_output : str, optional
+            Name of output file after drizzling using AstroDrizzle. Default is the root name of the original IMA.
+
 
         Outputs
         -------
@@ -169,6 +193,8 @@ class DashData(object):
         Drizzled Image : fits file
             Setting astrodriz to True will output a drizzled image form a single exposure (produced only if astrodriz is set to True)
         '''
+
+        #Set name for output drizzled image to the rootname of the original IMA if it is not specified
         if drz_output is None:
             drz_output=self.root
 
@@ -180,9 +206,11 @@ class DashData(object):
         if subtract_background:
             self.subtract_background_reads()
         
+        #Align images to a catalog
         if align_method == 'CATALOG': 
             if (ref_catalog is not None):
 
+                ##Create source list and segmentation maps based on difference files
                 if create_diff_source_lists is True:
                     diffpath = os.path.dirname(os.path.abspath('diff/{}_*_diff.fits'.format(self.root)))
                     cat_images=sorted([os.path.basename(x) for x in glob('diff/{}_*_diff.fits'.format(self.root))])
@@ -220,7 +248,8 @@ class DashData(object):
                 
                 raise Exception('Need to specify reference catalog and reference image.')
             
-                
+        
+        #Align images to the first image        
         else:
             
                 wcs = list(map(updatewcs.updatewcs, input_images))
@@ -255,9 +284,11 @@ class DashData(object):
                                   dqbits=0)
             
                 pass
-        
+
+        #Drizzle the images together
         if astrodriz is True:    
 
+            #Do not have drizzle take 256 flags into account
             no_tfs = 2,4,8,16,32,64,128,512,2048,4096,8192,16384
     
             astrodrizzle.AstroDrizzle(input_images, 
@@ -268,9 +299,9 @@ class DashData(object):
                 resetbits=0, 
                 preserve=False, 
                 driz_cr_snr='8.0 5.0', 
-                driz_cr_scale = '2.5 0.7')
-                #driz_sep_bits=no_tfs,
-                #final_bits=no_tfs)    
+                driz_cr_scale = '2.5 0.7',
+                driz_sep_bits=no_tfs,
+                final_bits=no_tfs)    
 
     def create_seg_map(self):
         '''
@@ -288,7 +319,7 @@ class DashData(object):
         Source List : .dat file
             List of sources and their properties
         '''
-
+    
         flt = fits.open(self.flt_file_name)
         data = flt[1].data
 
@@ -315,6 +346,28 @@ class DashData(object):
         ascii.write(tbl, '{}_source_list.dat'.format(self.root))
 
     def diff_seg_map(self, cat_images=None, remove_column_names=True, snr=1.0, sig=6.0, npixels=5):
+        '''
+        Creates segmentation image and source list from difference files.
+
+        Parameters
+        ----------
+        self : object
+            DashData object created from an individual IMA file
+        cat_images : list, str
+            List of difference files with full path name
+        remove_column_names : bool
+            Specifies whether to remove the header from the source lists so TweakReg can read them
+        snr : float
+        sig : float
+        npixels : float
+
+        Outputs
+        -------
+        Segmentation Image : fits file
+            Segmentation map
+        Source List : .dat file
+            List of sources and their properties
+        '''
 
         input_images = sorted(glob('diff/{}_*_diff.fits'.format(self.root)))
 
