@@ -452,6 +452,7 @@ class DashData(object):
 
         EXPTIME = flt_full[0].header['EXPTIME']
 
+        #Have lacosmicx locate cosmic rays
         crmask, clean = lacosmicx.lacosmicx(flt_full[1].data, gain=1.0, readnoise=20., 
                                     objlim = 15.0, 
                                     pssl = 0., 
@@ -459,6 +460,7 @@ class DashData(object):
 
         yi, xi = np.indices((1014,1014))
 
+        #Remove all 4096 flags within the boundaries of objects
         for exp in asn_exposures:
 
             flt = fits.open(exp, mode = 'update')
@@ -472,6 +474,7 @@ class DashData(object):
 
             flt.flush()
 
+        #Remove custom flags
         if rm_custom is True:
 
             if flag is not None:
@@ -622,8 +625,7 @@ class DashData(object):
             hdu3 = fits.ImageHDU(data = dq[j+1][5:-5,5:-5], header = self.ima_file['DQ',NSAMP-j-1].header, name='DQ')
             hdu3.header['EXTVER'] = 1
             
-            #hdu3.data[BP_MASK == 1] += 4
-            # trun the 8192 cosmic ray flag to the standard 3096
+            # Turn the 8192 cosmic ray flag to the standard 4096
             hdu3.data[(hdu3.data & 8192) > 0] -= 4096
             # remove the 32 flag, these are not consistently bad
             hdu3.data[(hdu3.data & 32) > 0] -= 32
@@ -665,9 +667,6 @@ class DashData(object):
             Fits files of the difference between adjacent IMA reads that have been background subtracted.
         '''
 
-        ### I think this should subtract the background on only one FLT
-        ### But currently loops over all of them
-
         seg = fits.open('{}_seg.fits'.format(self.root))    
         seg_data = np.cast[np.float32](seg[0].data)
         
@@ -690,8 +689,6 @@ class DashData(object):
         
             sky_level = np.median(diff[1].data[mask])
             model = diff[1].data*0. + sky_level
-        
-            # add header keywords of the fit components
 
             diff[1].header['MDRIZSKY'] =  sky_level 
             if not subtract:
@@ -711,8 +708,6 @@ class DashData(object):
         
             diff.flush()
             print('Background subtraction, {}_diff.fits:  {}'.format(exp, sky_level))
-            
-            ### Should these background subtracted reads substitute the ones saved in split_ima?
                     
                     
 def main(ima_file_name = None, flt_file_name = None, 
