@@ -37,6 +37,8 @@ Use
 Notes
 -----
 
+    Lacosmicx (used to identify cosmic rays): https://github.com/cmccully/lacosmicx
+
 References
 ----------
 
@@ -60,9 +62,13 @@ from stsci.tools import teal #Needed for gaia alignment
 from stwcs import updatewcs #Needed for gaia alignment
 from astropy.convolution import Gaussian2DKernel #Needed for create_seg_map
 from astropy.stats import gaussian_fwhm_to_sigma #Needed for create_seg_map
+from astropy.io import ascii
+from astropy.table import Table, Column, MaskedColumn
 from photutils import detect_sources #Needed for create_seg_map
 from photutils import detect_threshold #Needed for create_seg_map
+from photutils import source_properties
 import lacosmicx #for fix_cosmic_rays
+import os
 
 class DashData(object):
     
@@ -128,8 +134,11 @@ class DashData(object):
         self.flt_file_name = flt_file_name  
         self.root = self.file_name.split('/')[-1].split('_ima')[0]
     
-    def align(self, align_method = None, ref_catalog = None, drz_output=None, subtract_background = True, wcsname = 'DASH', 
-              threshold = 50., cw = 3.5, updatehdr=True, updateWCS=True, searchrad=20., astrodriz=True):
+    def align(self, align_method = None, ref_catalog = None, 
+              drz_output=None, subtract_background = True, wcsname = 'DASH', 
+              threshold = 50., cw = 3.5, updatehdr=True, updateWCS=True, 
+              searchrad=20., astrodriz=True, create_diff_source_lists=True, 
+              cat_file='diff_catfile.cat'):
 
         '''
         Aligns new FLT's to reference catalog.
@@ -149,8 +158,12 @@ class DashData(object):
         -------
         Shifts file : txt file
             File containing shifts during TweakReg
-        WCS Shifts file : fits filr
+        WCS Shifts file : fits file
             File containing WCS shifts during TweakReg
+        Residual plot : png
+            Plot showing residuals from TweakReg alignment
+        Vector plot : png
+            Plot showing vector poitnings from TweakReg alignment
         Aligned FLT's : fits file
             Same diff files created in split_ima that have been aligned using TweakReg
         Drizzled Image : fits file
@@ -170,37 +183,38 @@ class DashData(object):
         if align_method == 'CATALOG': 
             if (ref_catalog is not None):
 
-                wcs = list(map(updatewcs.updatewcs, input_images))
+                if create_diff_source_lists is True:
+                    diffpath = os.path.dirname(os.path.abspath('diff/{}_*_diff.fits'.format(self.root)))
+                    cat_images=sorted([os.path.basename(x) for x in glob('diff/{}_*_diff.fits'.format(self.root))])
 
+                    sc_diff_files = [diffpath + '/' + s for s in cat_images]
+
+                    self.diff_seg_map(cat_images=sc_diff_files)
+
+                wcs = list(map(updatewcs.updatewcs, input_images))
 
                 teal.unlearn('tweakreg')
                 teal.unlearn('imagefindpars')
 
-                tweakreg.TweakReg(input_images,
+                tweakreg.TweakReg(input_images, 
+                                  refcat=ref_catalog,
+                                  catfile=cat_file,
+                                  xcol=2,
+                                  ycol=3,
                                   updatehdr=updatehdr, 
                                   updatewcs=updateWCS,
-                                  writecat=True,
+                                  wcsname=wcsname,
                                   verbose=True,
-                                  imagefindcfg={'threshold':threshold,'conv_width':cw},
-                                  refcat=ref_catalog, 
-                                  clean=False, 
-                                  interactive=False,
-                                  see2dplot=False,
+                                  imagefindcfg={'threshold': threshold, 'conv_width': cw},
+                                  searchrad=searchrad,
+                                  searchunits = 'pixels',
                                   shiftfile=True, 
                                   outshifts=outshifts,
                                   outwcs=outwcs,
-                                  wcsname=wcsname,
-                                  headerlet = False,
-                                  minobj = 5, 
-                                  searchrad = searchrad, 
-                                  searchunits = 'pixels', 
-                                  use2dhist = True,
-                                  reusename=True,
+                                  interactive=False,
+                                  wcsname='DASH',  
                                   fitgeometry='rscale',
-                                  nclip=3,
-                                  sigma=3.0,
-                                  clobber=True,
-                                  dqbits=0)
+                                  minobj=5)
 
             else:
                 
@@ -243,17 +257,20 @@ class DashData(object):
                 pass
         
         if astrodriz is True:    
+
+            no_tfs = 2,4,8,16,32,64,128,512,2048,4096,8192,16384
     
             astrodrizzle.AstroDrizzle(input_images, 
                 output=drz_output,
                 clean=False, 
                 final_pixfrac=1.0, 
-                context=False, 
-                final_bits=576, 
+                context=False,
                 resetbits=0, 
                 preserve=False, 
                 driz_cr_snr='8.0 5.0', 
-                driz_cr_scale = '2.5 0.7')    
+                driz_cr_scale = '2.5 0.7')
+                #driz_sep_bits=no_tfs,
+                #final_bits=no_tfs)    
 
     def create_seg_map(self):
         '''
@@ -266,8 +283,10 @@ class DashData(object):
 
         Output
         ------
-        Segmentation Image : fits
+        Segmentation Image : fits file
             Segmentation map
+        Source List : .dat file
+            List of sources and their properties
         '''
 
         flt = fits.open(self.flt_file_name)
@@ -283,15 +302,86 @@ class DashData(object):
         hdu = fits.PrimaryHDU(segm.data)
         hdu.writeto(('{}_seg.fits').format(self.root), clobber=True)
 
+        # Create source list
+        cat = source_properties(data, segm)
 
-    def fix_cosmic_rays(self):
-    	'''
+        tbl = cat.to_table()
+        tbl['xcentroid'].info.format = '.2f'
+        tbl['ycentroid'].info.format = '.2f'
+        tbl['cxx'].info.format = '.2f'
+        tbl['cxy'].info.format = '.2f'
+        tbl['cyy'].info.format = '.2f'
+
+        ascii.write(tbl, '{}_source_list.dat'.format(self.root))
+
+    def diff_seg_map(self, cat_images=None, remove_column_names=True, snr=1.0, sig=6.0, npixels=5):
+
+        input_images = sorted(glob('diff/{}_*_diff.fits'.format(self.root)))
+
+        for index, diff in enumerate(input_images, start=1):
+
+            diff=fits.open(diff)
+            data = diff[1].data
+
+            threshold = detect_threshold(data, snr=snr)
+
+            sigma = sig * gaussian_fwhm_to_sigma 
+            kernel = Gaussian2DKernel(sigma, x_size=sig, y_size=sig)
+            kernel.normalize()
+            segm = detect_sources(data, threshold, npixels=npixels, filter_kernel=kernel)
+
+            hdu = fits.PrimaryHDU(segm.data)
+            hdu.writeto(('{}_{:02d}_diff_seg.fits').format(self.root, index), clobber=True)
+
+            # Create source list
+            cat = source_properties(data, segm)
+
+            tbl = cat.to_table()
+            tbl['xcentroid'].info.format = '.2f'
+            tbl['ycentroid'].info.format = '.2f'
+            tbl['cxx'].info.format = '.2f'
+            tbl['cxy'].info.format = '.2f'
+            tbl['cyy'].info.format = '.2f'
+
+            ascii.write(tbl, '{}_{:02d}_diff_source_list.dat'.format(self.root, index))
+
+            if remove_column_names is True:
+
+                #Remove headers to source lists so tweakreg can read them
+                n = 1
+                nfirstlines = []
+
+                with open('{}_{:02d}_diff_source_list.dat'.format(self.root, index)) as f, open("temp_sl.dat", "w") as out:
+                    for x in range(n):
+                        nfirstlines.append(next(f))
+                    for line in f:
+                        out.write(line)
+
+                os.remove('{}_{:02d}_diff_source_list.dat'.format(self.root, index))
+                os.rename("temp_sl.dat", '{}_{:02d}_diff_source_list.dat'.format(self.root, index))
+        
+        if cat_images is not None:
+            x=np.array(cat_images)
+            y=np.array(sorted(glob(('{}_*_diff_source_list.dat').format(self.root))))
+            catdata = Table([x, y], names=['Diff File', 'Source List'])
+            ascii.write(catdata, 'diff_catfile.cat')
+        else:
+            raise Exception('Need to input list of difference files in order to make source list. List should include full path.')
+
+
+    def fix_cosmic_rays(self, rm_custom=False, flag=None):
+        '''
         Resets cosmic rays within the seg maps of objects and uses L.A.Cosmic to find them again.
 
         Parameters
         ----------
         self : object
             DashData object created from an individual IMA file.
+        rm_custom : bool
+            Specifies whether or not the user would like to remove custom flags within the boundaries of sources, as defined by the segmentation map created from the original FLT.
+        flag : int
+            Specifies flag the user would like the remove within the boundaries of sources.
+
 
         Output
         ------
@@ -299,17 +389,22 @@ class DashData(object):
             Same diff files created in split_ima that have now been corrected for cosmic ray errors.
         '''
 
-        asn_exposures = sorted(glob('diff/' + self.root + '*_diff.fits'))
+        asn_exposures = sorted(glob('diff/' + self.root + '_*_diff.fits'))
 
-        seg = fits.open('{}_seg.fits'.format(self.root)) 
+        seg = fits.open('{}_seg.fits'.format(self.root))
         seg_data = np.cast[np.float32](seg[0].data)
 
         flt_full = fits.open(self.flt_file_name)
         flt_full_wcs = stwcs.wcsutil.HSTWCS(flt_full, ext=1)
 
-        crmask, clean = lacosmicx.lacosmicx(flt_full[1].data, gain=1.0, readnoise=0.12, 
-            sigclip = 4.0, sigfrac = 0.5, objlim = 10.0, 
-            satlevel=-1., pssl = 0., verbose=True)
+        EXPTIME = flt_full[0].header['EXPTIME']
+
+        crmask, clean = lacosmicx.lacosmicx(flt_full[1].data, gain=1.0, readnoise=20., 
+                                    objlim = 15.0, 
+                                    pssl = 0., 
+                                    verbose=True)
+
+        yi, xi = np.indices((1014,1014))
 
         for exp in asn_exposures:
 
@@ -318,21 +413,40 @@ class DashData(object):
             flagged_stars = ((flt['DQ'].data & 4096) > 0) & (seg_data > 0)
             flt['DQ'].data[flagged_stars] -= 4096
 
-            new_cr = (crmask == 1) & ((flt['DQ'].data & 4096) == 0)
+            new_cr = (crmask == 1) & ((flt['DQ'].data & 4096) == 0) & ((seg_data == 0) | ((seg_data > 0) & (flt['SCI'].data < 1.)))  & (xi > 915) & (yi < 295)
 
             flt['DQ'].data[new_cr] += 4096
 
             flt.flush()
 
+        if rm_custom is True:
+
+            if flag is not None:
+
+                for exp in asn_exposures:
+
+                    flt = fits.open(exp, mode = 'update')
+
+                    flagged_stars = ((flt['DQ'].data & flag) > 0) & (seg_data > 0)
+                    flt['DQ'].data[flagged_stars] -= flag
+
+                    new_cr = (crmask == 1) & ((flt['DQ'].data & flag) == 0) & ((seg_data == 0) | ((seg_data > 0) & (flt['SCI'].data < 1.)))  & (xi > 915) & (yi < 295)
+
+                    flt['DQ'].data[new_cr] += flag
+
+                    flt.flush()
+
+            else:
+
+                raise Exception('Must specify which flags to remove.')
+
     def make_pointing_asn(self):
         """ 
         Makes a new association table for the reads extracted from a given IMA.
-
         Parameters
         ----------
         self : object
             DashData object created from an individual IMA file. 
-
         Outputs
         ----------
         ASN files : fits file
@@ -377,10 +491,6 @@ class DashData(object):
 
         # Create property of the object that is the asn filename.
         self.asn_filename = asn_filename
-
-    def make_read_catalog(self):
-        
-        pass
              
     def run_reduction(self):
         ''' 
@@ -394,18 +504,15 @@ class DashData(object):
         Will create individual files for the difference between 
         adjacent reads of a IMA file. Will also add more attributes 
         to the DashData object. 
-
         Parameters
         ----------
         self : object
             DashData object created from an individual IMA file. 
-
         Outputs
         ----------
         N files : fits files
             Fits files of the difference between adjacent IMA reads.
         
-
         '''
         FLAT = fits.open(get_flat(self.file_name))
         IDCtable = fits.open(get_IDCtable(self.file_name))
@@ -490,7 +597,6 @@ class DashData(object):
         '''
         Performs median background subtraction for each individual difference file.
         Uses the DRZ and SEG images produced in FLT background subtraction.
-
         Parameters
         ----------
         self : object
@@ -500,7 +606,6 @@ class DashData(object):
             Set to True to subtract background.
         reset_stars_dq : bool
             Set to True to reset cosmic rays within objects to 0 because the centers of stars are flagged.
-
         Outputs
         -------
         Background Subtracted N files : fits files
@@ -556,6 +661,7 @@ class DashData(object):
             
             ### Should these background subtracted reads substitute the ones saved in split_ima?
                     
+                    
 def main(ima_file_name = None, flt_file_name = None, 
          align_method = None, ref_catalog = None, 
          drz_output=None, subtract_background = False, 
@@ -593,7 +699,7 @@ def main(ima_file_name = None, flt_file_name = None,
         Determines whether to update headers during TweakReg. Default is True.
     updateWCS : bool
         Determines whether to update WCS information during TweakReg. Default is True.
-    searchred : float
+    searchrad : float
         qwerty
     astrodriz : bool
         Determines whether or not to run astrodrizzle. Default is True.
