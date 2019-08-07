@@ -239,8 +239,7 @@ class DashData(object):
                                   shiftfile=True, 
                                   outshifts=outshifts,
                                   outwcs=outwcs,
-                                  interactive=False,
-                                  wcsname='DASH',  
+                                  interactive=False, 
                                   fitgeometry='rscale',
                                   minobj=5)
 
@@ -258,30 +257,22 @@ class DashData(object):
                 teal.unlearn('imagefindpars')
 
                 tweakreg.TweakReg(input_images, 
+                                  catfile=cat_file,
+                                  xcol=2,
+                                  ycol=3,
                                   updatehdr=updatehdr, 
                                   updatewcs=updateWCS,
-                                  writecat=True,
+                                  wcsname=wcsname,
                                   verbose=True,
-                                  imagefindcfg={'threshold':threshold,'conv_width':cw},
-                                  refcat=ref_catalog,
-                                  clean=False, 
-                                  interactive=False,
-                                  see2dplot=False,
+                                  imagefindcfg={'threshold': threshold, 'conv_width': cw},
+                                  searchrad=searchrad,
+                                  searchunits = 'pixels',
                                   shiftfile=True, 
                                   outshifts=outshifts,
                                   outwcs=outwcs,
-                                  wcsname=wcsname, 
-                                  headerlet = False,
-                                  minobj = 5, 
-                                  searchrad = searchrad, 
-                                  searchunits = 'pixels', 
-                                  use2dhist = True,
-                                  reusename=True,
+                                  interactive=False, 
                                   fitgeometry='rscale',
-                                  nclip=3,
-                                  sigma=3.0,
-                                  clobber=True,
-                                  dqbits=0)
+                                  minobj=5)
             
                 pass
 
@@ -716,7 +707,7 @@ def main(ima_file_name = None, flt_file_name = None,
          wcsname = 'DASH', threshold = 50., cw = 3.5, 
          updatehdr=True, updateWCS=True, 
          searchrad=20., 
-         astrodriz=True):
+         astrodriz=True, cat_file = 'diff_catfile.cat'):
 
     '''
     Runs entire DashData pipeline under a single function.
@@ -769,14 +760,24 @@ def main(ima_file_name = None, flt_file_name = None,
     '''
     
     myDash = DashData(ima_file_name, flt_file_name)
+
     myDash.split_ima()
+
     myDash.create_seg_map()
+
+    diffpath = os.path.dirname(os.path.abspath('diff/{}_*_diff.fits'.format(myDash.root)))
+    cat_images=sorted([os.path.basename(x) for x in glob('diff/{}_*_diff.fits'.format(myDash.root))])
+    sc_diff_files = [diffpath + '/' + s for s in cat_images]
+    myDash.diff_seg_map(cat_images=sc_diff_files)
+
     myDash.subtract_background_reads()
+
     myDash.fix_cosmic_rays()
+
     myDash.align(align_method = align_method, ref_catalog = ref_catalog, drz_output=drz_output, 
                  subtract_background = subtract_background, 
                  wcsname = wcsname, threshold = threshold, cw = cw, 
-                 updatehdr=updatehdr, updateWCS=updateWCS, 
+                 updatehdr=updatehdr, updateWCS=updateWCS, cat_file=cat_file,
                  searchrad=searchrad, 
                  astrodriz=astrodriz)
 
