@@ -142,8 +142,8 @@ class DashData(object):
               updatehdr=True, updateWCS=True, wcsname = 'DASH', 
               threshold = 50., cw = 3.5, 
               searchrad=20., astrodriz=True, 
-              cat_file='diff_catfile.cat',
-              drz_output=None,):
+              cat_file='catalogs/diff_catfile.cat',
+              drz_output=None, move_files=False):
 
         '''
         Aligns new FLT's to reference catalog.
@@ -173,7 +173,7 @@ class DashData(object):
         astrodriz : bool, optional
             Specifies whether to drizzle images together using Astrodrizzle. Default is True
         cat_file : str, optional
-            Name of catfile to be used to align sources in TweakReg. Default is the catfile created by setting create_diff_source_lists to True, diff_catfile.cat
+            Name of catfile to be used to align sources in TweakReg. Default is the catfile created by setting create_diff_source_lists to True, catalogs/diff_catfile.cat
         drz_output : str, optional
             Name of output file after drizzling using AstroDrizzle. Default is the root name of the original IMA.
 
@@ -200,8 +200,10 @@ class DashData(object):
 
         input_images = sorted(glob('diff/{}_*_diff.fits'.format(self.root)))
 
-        outshifts = 'shifts_{}.txt'.format(self.root)
-        outwcs = 'shifts_{}_wcs.fits'.format(self.root)
+        if not os.path.exists('shifts'):
+            os.mkdir('shifts')
+        outshifts = 'shifts/shifts_{}.txt'.format(self.root)
+        outwcs = 'shifts/shifts_{}_wcs.fits'.format(self.root)
         
         if subtract_background:
             self.subtract_background_reads()
@@ -292,7 +294,10 @@ class DashData(object):
                 driz_cr_snr='8.0 5.0', 
                 driz_cr_scale = '2.5 0.7',
                 driz_sep_bits=no_tfs,
-                final_bits=no_tfs)    
+                final_bits=no_tfs) 
+        
+        if move_files is True:
+            self.move_files()
 
     def create_seg_map(self):
         '''
@@ -322,7 +327,9 @@ class DashData(object):
         segm = detect_sources(data, threshold, npixels=10, filter_kernel=kernel)
 
         hdu = fits.PrimaryHDU(segm.data)
-        hdu.writeto(('{}_seg.fits').format(self.root), clobber=True)
+        if not os.path.exists('segmentation_maps'):
+            os.mkdir('segmentation_maps')
+        hdu.writeto(('segmentation_maps/{}_seg.fits').format(self.root), clobber=True)
 
         # Create source list
         cat = source_properties(data, segm)
@@ -334,7 +341,7 @@ class DashData(object):
         tbl['cxy'].info.format = '.2f'
         tbl['cyy'].info.format = '.2f'
 
-        ascii.write(tbl, '{}_source_list.dat'.format(self.root))
+        ascii.write(tbl, 'segmentation_maps/{}_source_list.dat'.format(self.root))
 
     def diff_seg_map(self, cat_images=None, remove_column_names=True, snr=1.0, sig=6.0, npixels=5):
         '''
@@ -375,7 +382,9 @@ class DashData(object):
             segm = detect_sources(data, threshold, npixels=npixels, filter_kernel=kernel)
 
             hdu = fits.PrimaryHDU(segm.data)
-            hdu.writeto(('{}_{:02d}_diff_seg.fits').format(self.root, index), clobber=True)
+            if not os.path.exists('segmentation_maps'):
+                os.mkdir('segmentation_maps')
+            hdu.writeto(('segmentation_maps/{}_{:02d}_diff_seg.fits').format(self.root, index), clobber=True)
 
             # Create source list
             cat = source_properties(data, segm)
@@ -387,7 +396,7 @@ class DashData(object):
             tbl['cxy'].info.format = '.2f'
             tbl['cyy'].info.format = '.2f'
 
-            ascii.write(tbl, '{}_{:02d}_diff_source_list.dat'.format(self.root, index))
+            ascii.write(tbl, 'segmentation_maps/{}_{:02d}_diff_source_list.dat'.format(self.root, index))
 
             if remove_column_names is True:
 
@@ -395,20 +404,23 @@ class DashData(object):
                 n = 1
                 nfirstlines = []
 
-                with open('{}_{:02d}_diff_source_list.dat'.format(self.root, index)) as f, open("temp_sl.dat", "w") as out:
+                with open('segmentation_maps/{}_{:02d}_diff_source_list.dat'.format(self.root, index)) as f, open("temp_sl.dat", "w") as out:
                     for x in range(n):
                         nfirstlines.append(next(f))
                     for line in f:
                         out.write(line)
 
-                os.remove('{}_{:02d}_diff_source_list.dat'.format(self.root, index))
-                os.rename("temp_sl.dat", '{}_{:02d}_diff_source_list.dat'.format(self.root, index))
+                os.remove('segmentation_maps/{}_{:02d}_diff_source_list.dat'.format(self.root, index))
+                os.rename("temp_sl.dat", 'segmentation_maps/{}_{:02d}_diff_source_list.dat'.format(self.root, index))
         
         if cat_images is not None:
             x=np.array(cat_images)
-            y=np.array(sorted(glob(('{}_*_diff_source_list.dat').format(self.root))))
+            y=np.array(sorted(glob(('segmentation_maps/{}_*_diff_source_list.dat').format(self.root))))
             catdata = Table([x, y], names=['Diff File', 'Source List'])
-            ascii.write(catdata, 'diff_catfile.cat')
+            #Save catfile in catalogs folder
+            if not os.path.exists('catalogs'):
+                os.mkdir('catalogs')
+            ascii.write(catdata, 'catalogs/diff_catfile.cat')
         else:
             raise Exception('Need to input list of difference files in order to make source list. List should include full path.')
 
@@ -435,7 +447,7 @@ class DashData(object):
 
         asn_exposures = sorted(glob('diff/' + self.root + '_*_diff.fits'))
 
-        seg = fits.open('{}_seg.fits'.format(self.root))
+        seg = fits.open('segmentation_maps/{}_seg.fits'.format(self.root))
         seg_data = np.cast[np.float32](seg[0].data)
 
         flt_full = fits.open(self.flt_file_name)
@@ -538,6 +550,56 @@ class DashData(object):
 
         # Create property of the object that is the asn filename.
         self.asn_filename = asn_filename
+
+    def move_files(self):
+        '''
+        Moves files from alignment steps to folders.
+
+        Parameters
+        ----------
+        self : object
+            DashData object created from an individual IMA file.
+
+        Outputs
+        -------
+        residuals : dir
+            Directory containing all residual and vector plots
+        histograms : dir
+            Directory containing all histogram png's
+        misC_tweakreg_files : dir
+            Directory containing all misc. files
+        '''
+
+        #Move all residual plots into residuals folder
+        if not os.path.exists('residuals'):
+            os.mkdir('residuals')
+
+        residuals=sorted(glob('residuals_{}_*_diff.png'.format(self.root)))
+        for image in residuals:
+            os.rename(image, 'residuals/' + image)
+
+        vectors=sorted(glob('vector_{}_*_diff.png'.format(self.root)))
+        for image in vectors:
+            os.rename(image, 'residuals/' + image)
+
+        #Move all histograms plots into histograms folder
+        if not os.path.exists('histograms'):
+            os.mkdir('histograms')
+
+        graphs=sorted(glob('hist2d_{}_*_diff.png'.format(self.root)))
+        for image in graphs:
+            os.rename(image, 'histograms/' + image)
+
+        #Move misc TweakReg files to misc_tweakreg folder
+        if not os.path.exists('misc_tweakreg_files'):
+            os.mkdir('misc_tweakreg_files')
+
+        files=sorted(glob('{}_*_diff*'.format(self.root)))
+        for image in files:
+            os.rename(image, 'misc_tweakreg_files/' + image)
+        fits=sorted(glob('{}_*_mask*'.format(self.root)))
+        for image in fits:
+            os.rename(image, 'misc_tweakreg_files/' + image)
              
     def run_reduction(self):
         ''' 
@@ -658,7 +720,7 @@ class DashData(object):
             Fits files of the difference between adjacent IMA reads that have been background subtracted.
         '''
 
-        seg = fits.open('{}_seg.fits'.format(self.root))    
+        seg = fits.open('segmentation_maps/{}_seg.fits'.format(self.root))    
         seg_data = np.cast[np.float32](seg[0].data)
         
         yi, xi = np.indices((1014,1014))
@@ -707,7 +769,7 @@ def main(ima_file_name = None, flt_file_name = None,
          wcsname = 'DASH', threshold = 50., cw = 3.5, 
          updatehdr=True, updateWCS=True, 
          searchrad=20., 
-         astrodriz=True, cat_file = 'diff_catfile.cat'):
+         astrodriz=True, cat_file = 'catalogs/diff_catfile.cat'):
 
     '''
     Runs entire DashData pipeline under a single function.
