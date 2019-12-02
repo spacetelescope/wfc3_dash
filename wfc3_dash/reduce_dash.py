@@ -319,7 +319,7 @@ class DashData(object):
         flt = fits.open(self.flt_file_name)
         data = flt[1].data
 
-        threshold = detect_threshold(data, snr=3.)
+        threshold = detect_threshold(data, nsigma=3.)
 
         sigma = 3.0 * gaussian_fwhm_to_sigma    # FWHM = 3.
         kernel = Gaussian2DKernel(sigma, x_size=3, y_size=3)
@@ -329,7 +329,7 @@ class DashData(object):
         hdu = fits.PrimaryHDU(segm.data)
         if not os.path.exists('segmentation_maps'):
             os.mkdir('segmentation_maps')
-        hdu.writeto(('segmentation_maps/{}_seg.fits').format(self.root), clobber=True)
+        hdu.writeto(('segmentation_maps/{}_seg.fits').format(self.root), overwrite=True)
 
         # Create source list
         cat = source_properties(data, segm)
@@ -343,7 +343,7 @@ class DashData(object):
 
         ascii.write(tbl, 'segmentation_maps/{}_source_list.dat'.format(self.root))
 
-    def diff_seg_map(self, cat_images=None, remove_column_names=True, snr=1.0, sig=6.0, npixels=5):
+    def diff_seg_map(self, cat_images=None, remove_column_names=True, nsigma=1.0, sig=6.0, npixels=5):
         '''
         Creates segmentation image and source list from difference files.
 
@@ -355,7 +355,7 @@ class DashData(object):
             List of difference files with full path name
         remove_column_names : bool
             Specifies whether to remove the header from the source lists so TweakReg can read them
-        snr : float
+        nsigma : float
         sig : float
         npixels : float
 
@@ -374,7 +374,7 @@ class DashData(object):
             diff=fits.open(diff)
             data = diff[1].data
 
-            threshold = detect_threshold(data, snr=snr)
+            threshold = detect_threshold(data, nsigma=nsigma)
 
             sigma = sig * gaussian_fwhm_to_sigma 
             kernel = Gaussian2DKernel(sigma, x_size=sig, y_size=sig)
@@ -384,7 +384,7 @@ class DashData(object):
             hdu = fits.PrimaryHDU(segm.data)
             if not os.path.exists('segmentation_maps'):
                 os.mkdir('segmentation_maps')
-            hdu.writeto(('segmentation_maps/{}_{:02d}_diff_seg.fits').format(self.root, index), clobber=True)
+            hdu.writeto(('segmentation_maps/{}_{:02d}_diff_seg.fits').format(self.root, index), overwrite=True)
 
             # Create source list
             cat = source_properties(data, segm)
