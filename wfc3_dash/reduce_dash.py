@@ -48,27 +48,26 @@ References
     doi:10.1088/1538-3873/129/971/015004
 
 """
-
-from astropy.io import fits
-import numpy as np
-from drizzlepac import tweakreg
-from drizzlepac import astrodrizzle
-import stwcs
+from glob import glob
 import os
-from utils import get_flat
-from utils import get_IDCtable
-from glob import glob #Needed for gaia alignment
-from stsci.tools import teal #Needed for gaia alignment
-from stwcs import updatewcs #Needed for gaia alignment
-from astropy.convolution import Gaussian2DKernel #Needed for create_seg_map
-from astropy.stats import gaussian_fwhm_to_sigma #Needed for create_seg_map
+
+from astropy.convolution import Gaussian2DKernel
 from astropy.io import ascii
+from astropy.io import fits
+from astropy.stats import gaussian_fwhm_to_sigma
 from astropy.table import Table, Column, MaskedColumn
+from drizzlepac import tweakreg
+from drizzlepac import astrodrizzle 
+import lacosmicx #for fix_cosmic_rays
+import numpy as np
+from stsci.tools import teal
+import stwcs
 from photutils import detect_sources #Needed for create_seg_map
 from photutils import detect_threshold #Needed for create_seg_map
 from photutils import source_properties
-import lacosmicx #for fix_cosmic_rays
-import os
+
+from utils import get_flat
+from utils import get_IDCtable
 
 class DashData(object):
     
@@ -415,7 +414,6 @@ class DashData(object):
             ascii.write(tbl, 'segmentation_maps/{}_{:02d}_diff_source_list.dat'.format(self.root, index))
 
             if remove_column_names is True:
-
                 #Remove headers to source lists so tweakreg can read them
                 n = 1
                 nfirstlines = []
@@ -500,38 +498,24 @@ class DashData(object):
 
         #Remove all 4096 flags within the boundaries of objects
         for exp in asn_exposures:
-
             flt = fits.open(exp, mode = 'update')
-
             flagged_stars = ((flt['DQ'].data & 4096) > 0) & (seg_data > 0)
             flt['DQ'].data[flagged_stars] -= 4096
-
             new_cr = (crmask == 1) & ((flt['DQ'].data & 4096) == 0) & ((seg_data == 0) | ((seg_data > 0) & (flt['SCI'].data < 1.)))  & (xi > 915) & (yi < 295)
-
             flt['DQ'].data[new_cr] += 4096
-
             flt.flush()
 
         #Remove custom flags
         if rm_custom is True:
-
             if flag is not None:
-
                 for exp in asn_exposures:
-
                     flt = fits.open(exp, mode = 'update')
-
                     flagged_stars = ((flt['DQ'].data & flag) > 0) & (seg_data > 0)
                     flt['DQ'].data[flagged_stars] -= flag
-
                     new_cr = (crmask == 1) & ((flt['DQ'].data & flag) == 0) & ((seg_data == 0) | ((seg_data > 0) & (flt['SCI'].data < 1.)))  & (xi > 915) & (yi < 295)
-
                     flt['DQ'].data[new_cr] += flag
-
                     flt.flush()
-
             else:
-
                 raise Exception('Must specify which flags to remove.')
 
     def make_pointing_asn(self):
