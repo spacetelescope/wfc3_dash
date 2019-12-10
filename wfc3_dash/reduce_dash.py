@@ -74,10 +74,12 @@ class DashData(object):
     
     def __init__(self,file_name=None, flt_file_name=None):
         '''
-		The init method performs a series of tests to make sure that the file fed to the DashData class is a valid IMA file with units in e/s. Will also add root attribute to DashData class.
+		The init method performs a series of tests to make sure that the file 
+        fed to the DashData class is a valid IMA file with units in e/s. Will 
+        also add root attribute to DashData class.
 
 		Paramaters
-		---------------
+		----------
 		self : object
 			DashData object created from an individual IMA file
 		file_name : fits file
@@ -86,7 +88,7 @@ class DashData(object):
             Name of FLT file that is fed to DashData class
 
 		Outputs
-		-----------
+		-------
 		N/A
 		'''
 
@@ -155,27 +157,37 @@ class DashData(object):
         subtract_background : bool, optional
             If True, runs subtract_background_reads functions.
         align_method : string, optional
-            Defines alignment method to be used. Default is None (input files will align to each other).
+            Defines alignment method to be used. Default is None (input files 
+            will align to each other).
         ref_catalog : cat file, optional
-            Defines reference image that will be referenced for CATALOG alignment method.
+            Defines reference image that will be referenced for CATALOG 
+            alignment method.
         create_diff_source_lists : bool, optional
-            Specifies whether or not to create a segmentation image and source list from the difference files
+            Specifies whether or not to create a segmentation image and source 
+            list from the difference files
         updatehdr : bool, optional
-            Specifies whether to update the headers after aligning during TweakReg. Default is True.
+            Specifies whether to update the headers after aligning during 
+            TweakReg. Default is True.
         updateWCS : bool, optional
-            Specifies whether to update the WCS after aligning during TweakReg. Default is True.
+            Specifies whether to update the WCS after aligning during TweakReg.
+            Default is True.
         wcsname : str, optional (as long as name you choose doesn't already exist)
             Specifies name of WCS. Default is 'DASH'
         threshold : float, optional
         cw : float, optional
         searchrad : float, optional
-            Radius (in pixels) that TweakReg will search around sources to find matches. Default is 20 pixels.
+            Radius (in pixels) that TweakReg will search around sources to find
+            matches. Default is 20 pixels.
         astrodriz : bool, optional
-            Specifies whether to drizzle images together using Astrodrizzle. Default is True
+            Specifies whether to drizzle images together using Astrodrizzle. 
+            Default is True.
         cat_file : str, optional
-            Name of catfile to be used to align sources in TweakReg. Default is the catfile created by setting create_diff_source_lists to True, catalogs/diff_catfile.cat
+            Name of catfile to be used to align sources in TweakReg. Default is 
+            the catfile created by setting create_diff_source_lists to True, 
+            catalogs/diff_catfile.cat
         drz_output : str, optional
-            Name of output file after drizzling using AstroDrizzle. Default is the root name of the original IMA.
+            Name of output file after drizzling using AstroDrizzle. Default is 
+            the root name of the original IMA.
 
 
         Outputs
@@ -191,7 +203,8 @@ class DashData(object):
         Aligned FLT's : fits file
             Same diff files created in split_ima that have been aligned using TweakReg
         Drizzled Image : fits file
-            Setting astrodriz to True will output a drizzled image form a single exposure (produced only if astrodriz is set to True)
+            Setting astrodriz to True will output a drizzled image form a single
+            exposure (produced only if astrodriz is set to True)
         '''
 
         #Set name for output drizzled image to the rootname of the original IMA if it is not specified
@@ -294,14 +307,16 @@ class DashData(object):
                 driz_cr_snr='8.0 5.0', 
                 driz_cr_scale = '2.5 0.7',
                 driz_sep_bits=no_tfs,
-                final_bits=no_tfs) 
+                final_bits=no_tfs,
+                use_db=False) 
         
         if move_files is True:
             self.move_files()
 
     def create_seg_map(self):
         '''
-        Creates segmentation map, from original FLT file, that is used in background subtraction and to fix cosmic rays.
+        Creates segmentation map, from original FLT file, that is used in 
+        background subtraction and to fix cosmic rays.
 
         Parameters
         ----------
@@ -354,7 +369,8 @@ class DashData(object):
         cat_images : list, str
             List of difference files with full path name
         remove_column_names : bool
-            Specifies whether to remove the header from the source lists so TweakReg can read them
+            Specifies whether to remove the header from the source lists so 
+            TweakReg can read them
         nsigma : float
         sig : float
         npixels : float
@@ -425,24 +441,31 @@ class DashData(object):
             raise Exception('Need to input list of difference files in order to make source list. List should include full path.')
 
 
-    def fix_cosmic_rays(self, rm_custom=False, flag=None):
+    def fix_cosmic_rays(self, rm_custom=False, flag=None, **lacosmic_param):
         '''
-        Resets cosmic rays within the seg maps of objects and uses L.A.Cosmic to find them again.
+        Resets cosmic rays within the seg maps of objects and uses L.A.Cosmic 
+        to find them again.
 
         Parameters
         ----------
         self : object
             DashData object created from an individual IMA file.
         rm_custom : bool
-            Specifies whether or not the user would like to remove custom flags within the boundaries of sources, as defined by the segmentation map created from the original FLT.
+            Specifies whether or not the user would like to remove custom flags
+            within the boundaries of sources, as defined by the segmentation map
+            created from the original FLT.
         flag : int
-            Specifies flag the user would like the remove within the boundaries of sources.
-
+            Specifies flag the user would like the remove within the boundaries 
+            of sources.
+        lacosmic_param : dic 
+            Dictionary of the L.A.Cosmic parameters that users may want to specify. 
+            If not set, then presets are used. 
 
         Output
         ------
         Fixed for cosmic rays diff files : fits
-            Same diff files created in split_ima that have now been corrected for cosmic ray errors.
+            Same diff files created in split_ima that have now been corrected 
+            for cosmic ray errors.
         '''
 
         asn_exposures = sorted(glob('diff/' + self.root + '_*_diff.fits'))
@@ -455,11 +478,23 @@ class DashData(object):
 
         EXPTIME = flt_full[0].header['EXPTIME']
 
+        if lacosmic_param:
+            gain = lacosmic_param['gain']
+            readnoise = lacosmic_param['readnoise']
+            objlim = lacosmic_param['objlim']
+            pssl = lacosmic_param['pssl']
+            verbose = lacosmic_param['verbose']
+        else: 
+            gain = 1.0
+            readnoise = 20.
+            objlim = 15.0
+            pssl = 0.
+            verbose = True
         #Have lacosmicx locate cosmic rays
-        crmask, clean = lacosmicx.lacosmicx(flt_full[1].data, gain=1.0, readnoise=20., 
-                                    objlim = 15.0, 
-                                    pssl = 0., 
-                                    verbose=True)
+        crmask, clean = lacosmicx.lacosmicx(flt_full[1].data, gain=gain, readnoise=readnoise, 
+                                    objlim = objlim, 
+                                    pssl = pssl, 
+                                    verbose=verbose)
 
         yi, xi = np.indices((1014,1014))
 
@@ -710,14 +745,17 @@ class DashData(object):
         self : object
             DashData object created from an individual IMA file.
         subtract : bool
-            Does not subtract the background by default, but still writes it to the header.
+            Does not subtract the background by default, but still writes it to 
+            the header.
             Set to True to subtract background.
         reset_stars_dq : bool
-            Set to True to reset cosmic rays within objects to 0 because the centers of stars are flagged.
+            Set to True to reset cosmic rays within objects to 0 because the 
+            centers of stars are flagged.
         Outputs
         -------
         Background Subtracted N files : fits files
-            Fits files of the difference between adjacent IMA reads that have been background subtracted.
+            Fits files of the difference between adjacent IMA reads that have 
+            been background subtracted.
         '''
 
         seg = fits.open('segmentation_maps/{}_seg.fits'.format(self.root))    
@@ -781,14 +819,18 @@ def main(ima_file_name = None, flt_file_name = None,
     flt_file_name : str
         File name of FLT file.
     align_method : str, optional
-        Method to align difference files using TweakReg. Default is None, which aligns reads to the first read.
+        Method to align difference files using TweakReg. Default is None, which 
+        aligns reads to the first read.
         Setting align_method equal to 'CATALOG' will align the reads to a catalog.
     ref_catalog : str, optional
         Catalog to be aligned to if using CATALOG align method.
     drz_output : str, optional
-        Name to call final drizzled output image ( + '_drz_sci.fits' ). Default is root_name + '_drz_sci.fits'.
+        Name to call final drizzled output image ( + '_drz_sci.fits' ). 
+        Default is root_name + '_drz_sci.fits'.
     subtract_background : bool
-        Determines whether background is subtracted or not during align function. Default is False since during this main function,
+        Determines whether background is subtracted or not during align 
+        function. 
+        Default is False since during this main function,
         the background is subtracted separately.
     wcsname : str
         Name for WCS during TweakReg.
@@ -799,7 +841,8 @@ def main(ima_file_name = None, flt_file_name = None,
     updatehdr : bool
         Determines whether to update headers during TweakReg. Default is True.
     updateWCS : bool
-        Determines whether to update WCS information during TweakReg. Default is True.
+        Determines whether to update WCS information during TweakReg. Default 
+        is True.
     searchrad : float
         qwerty
     astrodriz : bool
@@ -816,9 +859,11 @@ def main(ima_file_name = None, flt_file_name = None,
     WCS Shifts file : fits filr
         File containing WCS shifts during TweakReg
     Drizzled science image : fits
-        Drizzled science image from one exposure reduced using the DASH pipeline.
+        Drizzled science image from one exposure reduced using the DASH 
+        pipeline.
     Weighted science image : fits
-        Weighted drizzled science image from one exposure reduced using the DASH pipeline.
+        Weighted drizzled science image from one exposure reduced using the 
+        DASH pipeline.
     '''
     
     myDash = DashData(ima_file_name, flt_file_name)
