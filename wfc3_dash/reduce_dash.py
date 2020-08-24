@@ -140,7 +140,7 @@ class DashData(object):
     def align(self, subtract_background = True, 
               align_method = None, ref_catalog = None, 
               create_diff_source_lists=True,
-              updatehdr=True, updateWCS=True, wcsname = 'DASH', 
+              updatehdr=True, updatewcs=True, wcsname = 'DASH', 
               threshold = 50., cw = 3.5, 
               searchrad=20., astrodriz=True, 
               cat_file='catalogs/diff_catfile.cat',
@@ -167,7 +167,7 @@ class DashData(object):
         updatehdr : bool, optional
             Specifies whether to update the headers after aligning during 
             TweakReg. Default is True.
-        updateWCS : bool, optional
+        updatewcs : bool, optional
             Specifies whether to update the WCS after aligning during TweakReg.
             Default is True.
         wcsname : str, optional (as long as name you choose doesn't already exist)
@@ -233,8 +233,6 @@ class DashData(object):
 
                     self.diff_seg_map(cat_images=sc_diff_files)
 
-                wcs = list(map(updatewcs.updatewcs, input_images))
-
                 teal.unlearn('tweakreg')
                 teal.unlearn('imagefindpars')
 
@@ -244,7 +242,7 @@ class DashData(object):
                                   xcol=2,
                                   ycol=3,
                                   updatehdr=updatehdr, 
-                                  updatewcs=updateWCS,
+                                  updatewcs=updatewcs,
                                   wcsname=wcsname,
                                   verbose=True,
                                   imagefindcfg={'threshold': threshold, 'conv_width': cw},
@@ -264,8 +262,6 @@ class DashData(object):
         
         #Align images to the first image        
         else:
-            
-                wcs = list(map(updatewcs.updatewcs, input_images))
 
                 teal.unlearn('tweakreg')
                 teal.unlearn('imagefindpars')
@@ -275,7 +271,7 @@ class DashData(object):
                                   xcol=2,
                                   ycol=3,
                                   updatehdr=updatehdr, 
-                                  updatewcs=updateWCS,
+                                  updatewcs=updatewcs,
                                   wcsname=wcsname,
                                   verbose=True,
                                   imagefindcfg={'threshold': threshold, 'conv_width': cw},
@@ -306,8 +302,7 @@ class DashData(object):
                 driz_cr_snr='8.0 5.0', 
                 driz_cr_scale = '2.5 0.7',
                 driz_sep_bits=no_tfs,
-                final_bits=no_tfs,
-                use_db=False) 
+                final_bits=no_tfs) 
         
         if move_files is True:
             self.move_files()
@@ -789,7 +784,7 @@ def main(ima_file_name = None, flt_file_name = None,
          align_method = None, ref_catalog = None, 
          drz_output=None, subtract_background = False, 
          wcsname = 'DASH', threshold = 50., cw = 3.5, 
-         updatehdr=True, updateWCS=True, 
+         updatehdr=True, updatewcs=True, 
          searchrad=20., 
          astrodriz=True, cat_file = 'catalogs/diff_catfile.cat'):
 
@@ -824,7 +819,7 @@ def main(ima_file_name = None, flt_file_name = None,
         qwerty
     updatehdr : bool
         Determines whether to update headers during TweakReg. Default is True.
-    updateWCS : bool
+    updatewcs : bool
         Determines whether to update WCS information during TweakReg. Default 
         is True.
     searchrad : float
@@ -868,7 +863,7 @@ def main(ima_file_name = None, flt_file_name = None,
     myDash.align(align_method = align_method, ref_catalog = ref_catalog, drz_output=drz_output, 
                  subtract_background = subtract_background, 
                  wcsname = wcsname, threshold = threshold, cw = cw, 
-                 updatehdr=updatehdr, updateWCS=updateWCS, cat_file=cat_file,
+                 updatehdr=updatehdr, updatewcs=updatewcs, cat_file=cat_file,
                  searchrad=searchrad, 
                  astrodriz=astrodriz)
 
