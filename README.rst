@@ -21,7 +21,7 @@ To obtain ``wfc3_dash`` clone the repository directly from GitHub:
 
 ::
 
-  git clone *insert link here*
+  git clone https://github.com/spacetelescope/wfc3_dash.git
   cd wfc3_dash
 
 Environment Installation
