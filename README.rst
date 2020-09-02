@@ -1,7 +1,7 @@
 Introduction
 ------------
 
-This package is intended to aid users in properly reducing their DASH data. While there are many portions of the pipeline that will need to be specialized depending on independent data/observations the general outline of steps should be useful to all users in their reduction. Further, the notebooks which provide a pipeline walk through will be generally applicable to all DASH data and provide a helpful interpretation of the best practices as described in Momcheva et. al (INSERT LINK).
+This package is intended to aid users in properly reducing their DASH data. While there are many portions of the pipeline that will need to be specialized depending on independent data/observations the general outline of steps should be useful to all users in their reduction. Further, the notebooks which provide a pipeline walk through will be generally applicable to all DASH data and provide a helpful interpretation of the best practices as described in `Momcheva et. al 2016 <https://arxiv.org/pdf/1603.00465.pdf>`.
 
 Installation
 ------------
@@ -63,7 +63,35 @@ In order to install the ``dash`` package within the ``conda`` environment, run t
 
 ::
 
-  python setup.py [install|develop]
+  python setup.py install
+ 
+
+Package Updates
+~~~~~~~~~~~~~~~
+
+There will be periodic changes to the ``dash`` package as we update and expand the codes and notebook examples based on current plans and user input. To update your `dash` package, you will first go to the `wfc3_dash` main directory and check that you are on the `master` branch:
+
+::
+
+  git branch
+
+If you are not on the master branch, you can switch back using: 
+
+:: 
+
+  git checkout master
+  
+From there you can pull any changes to the code or notebooks using:
+
+:: 
+
+  git pull
+
+And install those changes using the setup script again: 
+
+::
+
+  python setup.py install
 
 
 Lacosmicx Install
