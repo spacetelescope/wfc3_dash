@@ -1,7 +1,7 @@
 Introduction
 ------------
 
-This package is intended to aid users in properly reducing their DASH data. While there are many portions of the pipeline that will need to be specialized depending on independent data/observations the general outline of steps should be useful to all users in their reduction. Further, the notebooks which provide a pipeline walk through will be generally applicable to all DASH data and provide a helpful interpretation of the best practices as described in `Momcheva et. al 2016 <https://arxiv.org/pdf/1603.00465.pdf>`.
+This package is intended to aid users in properly reducing their DASH data. While there are many portions of the pipeline that will need to be specialized depending on independent data/observations the general outline of steps should be useful to all users in their reduction. Further, the notebooks which provide a pipeline walk through will be generally applicable to all DASH data and provide a helpful interpretation of the best practices as described in `Momcheva et. al 2016 <https://arxiv.org/pdf/1603.00465.pdf>`_. 
 
 Installation
 ------------
