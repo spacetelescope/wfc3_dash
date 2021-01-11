@@ -3,7 +3,7 @@ Introduction
 
 This package is intended to aid users in properly reducing their DASH data. While there are many portions of the pipeline that will need to be specialized depending on independent data/observations the general outline of steps should be useful to all users in their reduction. Further, the notebooks which provide a pipeline walk through will be generally applicable to all DASH data and provide a helpful interpretation of the best practices as described in `Momcheva et. al 2016 <https://arxiv.org/pdf/1603.00465.pdf>`_. 
 
-An in-depth Instrument Science Report that walks through this package and the accompanying Jupyter Notebook tutorial is now available `here  <https://www.stsci.edu/files/live/sites/www/files/home/hst/instrumentation/wfc3/documentation/instrument-science-reports-isrs/_documents/2021/2021-02.pdf>`.
+An in-depth Instrument Science Report that walks through this package and the accompanying Jupyter Notebook tutorial is now available `here  <https://www.stsci.edu/files/live/sites/www/files/home/hst/instrumentation/wfc3/documentation/instrument-science-reports-isrs/_documents/2021/2021-02.pdf>`_.
 
 Installation
 ------------
